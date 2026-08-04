@@ -190,7 +190,7 @@ function App() {
                onChange={(e) => setPhone(e.target.value)}
                style={{padding: '8px', borderRadius: '8px', border: '1px solid #ccc', flex: 1}}
              />
-             <button onClick={handleCheckPoints} style={{background: '#4F46E5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 12px'}}>Cek Poin</button>
+             <button onClick={handleCheckPoints} style={{background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 12px'}}>Cek Poin</button>
           </div>
         </div>
 

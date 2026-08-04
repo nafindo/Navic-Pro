@@ -1,12 +1,12 @@
 :root {
-  --primary: #4F46E5;
-  --primary-hover: #4338CA;
-  --bg-color: #F3F4F6;
-  --text-main: #1F2937;
-  --text-muted: #6B7280;
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.5);
-  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  --primary: #9B1B30; /* Maroon Red */
+  --primary-hover: #7A1526;
+  --bg-color: #F9F6F7;
+  --text-main: #2D2323;
+  --text-muted: #6E6363;
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 8px 32px 0 rgba(155, 27, 48, 0.08);
 }
 
 * {
@@ -17,7 +17,7 @@
 
 body {
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+  background: linear-gradient(135deg, #fdfbfb 0%, #f4e9e9 100%);
   color: var(--text-main);
   min-height: 100vh;
   margin: 0;
@@ -90,7 +90,7 @@ body {
 h1 {
   font-size: 1.25rem;
   font-weight: 800;
-  background: -webkit-linear-gradient(45deg, #4F46E5, #ec4899);
+  background: -webkit-linear-gradient(45deg, var(--primary), #E63946);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
