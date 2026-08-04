@@ -257,6 +257,11 @@ function App() {
            </div>
         ) : (
           <div className="products-grid">
+            {activeTab === 'merch' && (
+              <div style={{gridColumn: '1 / -1', background: '#ffe4e6', color: '#9f1239', padding: '12px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', fontSize: '0.9rem'}}>
+                 ℹ️ Penukaran poin (Redeem) hanya dapat dilakukan langsung di Kasir/Cafe.
+              </div>
+            )}
             {(activeTab === 'menu' ? menuItems : merchItems).map((item) => {
                const cartItem = cart.find(c => c.id_produk === item.id_produk);
                
@@ -288,16 +293,22 @@ function App() {
                   
                   <div className="product-info">
                     <h3>{item.nama_menu}</h3>
-                    <p className="price">Rp {parseInt(item.harga).toLocaleString('id-ID')}</p>
-                    
-                    {cartItem ? (
-                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto'}}>
-                        <button onClick={() => removeFromCart(item.id_produk)} style={{width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold'}}>-</button>
-                        <span style={{fontWeight: 'bold'}}>{cartItem.qty}</span>
-                        <button onClick={() => addToCart(item)} style={{width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold'}}>+</button>
-                      </div>
+                    {activeTab === 'merch' ? (
+                       <p className="price" style={{color: 'var(--primary)'}}>{parseInt(item.harga).toLocaleString('id-ID')} Poin</p>
                     ) : (
-                      <button className="add-btn" onClick={() => addToCart(item)}>+ Tambah</button>
+                       <p className="price">Rp {parseInt(item.harga).toLocaleString('id-ID')}</p>
+                    )}
+                    
+                    {activeTab === 'menu' && (
+                      cartItem ? (
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto'}}>
+                          <button onClick={() => removeFromCart(item.id_produk)} style={{width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold'}}>-</button>
+                          <span style={{fontWeight: 'bold'}}>{cartItem.qty}</span>
+                          <button onClick={() => addToCart(item)} style={{width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold'}}>+</button>
+                        </div>
+                      ) : (
+                        <button className="add-btn" onClick={() => addToCart(item)}>+ Tambah</button>
+                      )
                     )}
                   </div>
                 </div>
