@@ -39,7 +39,8 @@ function App() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const [res, merchRes] = await Promise.all([fetchMasterData(), fetchMerchandise()]);
+      const res = await fetchMasterData();
+      const merchRes = await fetchMerchandise();
       
       if (res.success && res.data && res.data.produk) {
         const allProducts = res.data.produk.filter(p => p.is_tersedia);
