@@ -525,7 +525,11 @@ function App() {
              <div style={{marginBottom: '16px', padding: '12px', background: '#eef2ff', borderRadius: '8px', border: '1px solid var(--primary)'}}>
                <div style={{fontWeight: 'bold', color: 'var(--primary)', marginBottom: '4px'}}>Mode: Makan di Tempat (Dine-In)</div>
                <div style={{fontSize: '0.9rem'}}>Nomor meja telah terkunci dari QR Code.</div>
-               <button onClick={() => window.location.href = window.location.pathname} style={{marginTop: '10px', color: 'var(--primary)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '0.9rem'}}>Bukan di resto? Buka laman Delivery</button>
+               
+               <div style={{marginTop: '16px', padding: '12px', background: '#fff', borderRadius: '8px', border: '1px dashed var(--primary)', textAlign: 'center'}}>
+                 <div style={{fontSize: '0.9rem', marginBottom: '8px', color: '#334155'}}>Kami siap layanan antar, klik di bawah! Siap antar ke rumah Anda.</div>
+                 <button onClick={() => window.location.href = window.location.pathname} style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', width: '100%'}}>🛵 Layanan Antar</button>
+               </div>
              </div>
            ) : (
              <div style={{marginBottom: '16px', padding: '12px', background: '#eef2ff', borderRadius: '8px', border: '1px solid var(--primary)'}}>
