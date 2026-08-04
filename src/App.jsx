@@ -202,7 +202,10 @@ function App() {
         <div className="header-content">
           <div className="logo-section">
             <img src="/Navic-Pro/crunchy_logo.png" alt="Navic Pro" style={{height: '40px'}} onError={(e)=>{e.target.style.display='none'}} />
-            <h1>Navic Pro</h1>
+            <div>
+              <h1>Navic Pro</h1>
+              <div className="slogan">Restoran Pintar Aplikasi Modern</div>
+            </div>
           </div>
           <div className="loyalty-badge">
             <span className="pts-label">Poin Anda:</span>

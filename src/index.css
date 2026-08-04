@@ -88,7 +88,18 @@ body {
 h1 {
   font-size: 1.25rem;
   font-weight: 800;
-  color: var(--primary);
+  background: -webkit-linear-gradient(45deg, #4F46E5, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1.2;
+}
+
+.slogan {
+  font-size: 0.65rem;
+  color: #666;
+  font-weight: 500;
+  margin-top: 2px;
+  letter-spacing: 0.3px;
 }
 
 .loyalty-badge {
