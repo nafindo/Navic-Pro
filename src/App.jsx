@@ -41,8 +41,9 @@ function App() {
       const res = await fetchMasterData();
       if (res.success && res.data && res.data.produk) {
         const allProducts = res.data.produk.filter(p => p.is_tersedia);
-        setMenuItems(allProducts.filter(p => p.kategori !== "Merchandise"));
-        setMerchItems(allProducts.filter(p => p.kategori === "Merchandise"));
+        const isMerch = (p) => p.kategori && (p.kategori.toLowerCase() === 'merchandise' || p.kategori.toLowerCase() === 'hadiah' || p.kategori.toLowerCase().includes('tukar poin'));
+        setMenuItems(allProducts.filter(p => !isMerch(p)));
+        setMerchItems(allProducts.filter(p => isMerch(p)));
       } else {
         setErrorMsg("Gagal memuat data menu dari server.");
       }
@@ -81,8 +82,15 @@ function App() {
     }
   };
 
-  const cartTotalRupiah = cart.filter(c => c.kategori !== 'Merchandise').reduce((sum, item) => sum + ((item.harga || 0) * item.qty), 0);
-  const cartTotalPoin = cart.filter(c => c.kategori === 'Merchandise').reduce((sum, item) => sum + ((item.harga || 0) * item.qty), 0);
+  const cartTotalRupiah = cart.filter(c => {
+    const isMerch = c.kategori && (c.kategori.toLowerCase() === 'merchandise' || c.kategori.toLowerCase() === 'hadiah' || c.kategori.toLowerCase().includes('tukar poin'));
+    return !isMerch;
+  }).reduce((sum, item) => sum + ((item.harga || 0) * item.qty), 0);
+  
+  const cartTotalPoin = cart.filter(c => {
+    const isMerch = c.kategori && (c.kategori.toLowerCase() === 'merchandise' || c.kategori.toLowerCase() === 'hadiah' || c.kategori.toLowerCase().includes('tukar poin'));
+    return isMerch;
+  }).reduce((sum, item) => sum + ((item.harga || 0) * item.qty), 0);
   const cartTotal = cartTotalRupiah; // for display in checkout button
   const cartItemCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
