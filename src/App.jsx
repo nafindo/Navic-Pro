@@ -521,21 +521,23 @@ function App() {
            <input type="text" value={customerName} onChange={e=>setCustomerName(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}} placeholder="Nama Anda" />
 
            <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Tipe Pesanan</label>
-           <div style={{display: 'flex', gap: '10px', marginBottom: '16px'}}>
-              <button 
-                 onClick={() => setOrderType('Dine-In')} 
-                 style={{flex: 1, padding: '12px', borderRadius: '8px', border: orderType === 'Dine-In' ? '2px solid var(--primary)' : '1px solid #ccc', background: orderType === 'Dine-In' ? '#eef2ff' : '#fff', fontWeight: 'bold'}}
-              >Dine-In</button>
-              <button 
-                 onClick={() => setOrderType('Delivery')} 
-                 style={{flex: 1, padding: '12px', borderRadius: '8px', border: orderType === 'Delivery' ? '2px solid var(--primary)' : '1px solid #ccc', background: orderType === 'Delivery' ? '#eef2ff' : '#fff', fontWeight: 'bold'}}
-              >Delivery</button>
-           </div>
+           {orderType === 'Dine-In' ? (
+             <div style={{marginBottom: '16px', padding: '12px', background: '#eef2ff', borderRadius: '8px', border: '1px solid var(--primary)'}}>
+               <div style={{fontWeight: 'bold', color: 'var(--primary)', marginBottom: '4px'}}>Mode: Makan di Tempat (Dine-In)</div>
+               <div style={{fontSize: '0.9rem'}}>Nomor meja telah terkunci dari QR Code.</div>
+               <button onClick={() => window.location.href = window.location.pathname} style={{marginTop: '10px', color: 'var(--primary)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '0.9rem'}}>Bukan di resto? Buka laman Delivery</button>
+             </div>
+           ) : (
+             <div style={{marginBottom: '16px', padding: '12px', background: '#eef2ff', borderRadius: '8px', border: '1px solid var(--primary)'}}>
+               <div style={{fontWeight: 'bold', color: 'var(--primary)', marginBottom: '4px'}}>Mode: Pesan Antar (Delivery)</div>
+               <div style={{fontSize: '0.9rem'}}>Pesanan akan dikirim ke alamat Anda.</div>
+             </div>
+           )}
 
            {orderType === 'Dine-In' && (
              <>
                <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Nomor Meja</label>
-               <input type="text" value={tableNumber} onChange={e=>setTableNumber(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}} placeholder="Contoh: Meja 12" />
+               <input type="text" value={tableNumber} onChange={e=>setTableNumber(e.target.value)} readOnly={new URLSearchParams(window.location.search).has('meja')} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px', background: new URLSearchParams(window.location.search).has('meja') ? '#f3f4f6' : '#fff'}} placeholder="Contoh: Meja 12" />
              </>
            )}
 
