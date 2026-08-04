@@ -326,9 +326,16 @@ function App() {
       {/* Main Content */}
       <main className="main-content" style={{ display: showCheckout ? 'none' : 'block' }}>
         <div className="hero-banner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-            <img src="/Navic-Pro/navic_pro_logo.png" alt="Crunchy Logo" style={{ height: '60px', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }} onError={(e) => e.target.style.display='none'} />
-            <h2 style={{fontSize: '2.5rem', fontWeight: '900', color: 'white', margin: 0, letterSpacing: '-1px'}}>Crunchy.co</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <img src="/Navic-Pro/navic_pro_logo.png" alt="Crunchy Logo" style={{ height: '60px', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }} onError={(e) => e.target.style.display='none'} />
+              <h2 style={{fontSize: '2.5rem', fontWeight: '900', color: 'white', margin: 0, letterSpacing: '-1px'}}>Crunchy.co</h2>
+            </div>
+            {orderType === 'Dine-In' && tableNumber && (
+              <div style={{background: 'rgba(255,255,255,0.2)', padding: '6px 12px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.5)', fontSize: '0.9rem', fontWeight: 'bold', color: 'white', whiteSpace: 'nowrap'}}>
+                {tableNumber.replace('-', ' ')}
+              </div>
+            )}
           </div>
           <p style={{marginTop: '4px', fontWeight: '500'}}>Hai {customerName ? customerName : 'Pelanggan'}, silakan pilih menu favorit Anda.</p>
           
