@@ -17,7 +17,7 @@
 
 body {
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  background: linear-gradient(135deg, #fdfbfb 0%, #f4e9e9 100%);
+  background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
   color: var(--text-main);
   min-height: 100vh;
   margin: 0;

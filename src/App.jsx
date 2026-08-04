@@ -166,7 +166,7 @@ function App() {
       <header className="glass-header">
         <div className="header-content">
           <div className="logo-section">
-            <img src="/Navic-Pro/navic_pro_logo.png" alt="Navic Pro" style={{height: '40px'}} onError={(e)=>{e.target.src='./navic_pro_logo.png'}} />
+            <img src="/Navic-Pro/crunchy_logo.png" alt="Navic Pro" style={{height: '40px'}} onError={(e)=>{e.target.style.display='none'}} />
             <h1>Navic Pro</h1>
           </div>
           <div className="loyalty-badge">
@@ -180,7 +180,7 @@ function App() {
       <main className="main-content" style={{ display: showCheckout ? 'none' : 'block' }}>
         <div className="hero-banner">
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-            <img src="/Navic-Pro/crunchy_logo.png" alt="Crunchy Logo" style={{ height: '60px', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }} onError={(e) => e.target.style.display='none'} />
+            <img src="/Navic-Pro/navic_pro_logo.png" alt="Crunchy Logo" style={{ height: '60px', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }} onError={(e) => e.target.style.display='none'} />
             <h2 style={{fontSize: '2.5rem', fontWeight: '900', color: 'white', margin: 0, letterSpacing: '-1px'}}>Crunchy.co</h2>
           </div>
           <p style={{marginTop: '4px', fontWeight: '500'}}>Hai {customerName ? customerName : 'Pelanggan'}, silakan pilih menu favorit Anda.</p>
