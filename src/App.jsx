@@ -329,17 +329,16 @@ function App() {
           {orderType === 'Dine-In' && tableNumber && (
             <div style={{
               position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%) rotate(-10deg)',
-              fontSize: '5rem',
+              top: '-5px',
+              right: '-10px',
+              fontSize: '4.5rem',
               fontWeight: '900',
-              color: 'rgba(255, 255, 255, 0.15)',
+              color: 'rgba(255, 255, 255, 0.3)',
               whiteSpace: 'nowrap',
               pointerEvents: 'none',
               zIndex: 0,
               userSelect: 'none',
-              letterSpacing: '2px'
+              letterSpacing: '1px'
             }}>
               {tableNumber.replace('-', ' ')}
             </div>
