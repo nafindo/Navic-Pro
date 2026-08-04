@@ -4,6 +4,7 @@ import './index.css'
 
 function App() {
   const [activeTab, setActiveTab] = useState('menu');
+  const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [menuItems, setMenuItems] = useState([]);
   const [merchItems, setMerchItems] = useState([]);
   const [cart, setCart] = useState([]);
@@ -257,12 +258,29 @@ function App() {
            </div>
         ) : (
           <div className="products-grid">
+            {activeTab === 'menu' && (() => {
+              const uniqueCategories = ['Semua', ...new Set(menuItems.map(item => item.kategori).filter(Boolean))];
+              if (uniqueCategories.length <= 1) return null;
+              return (
+                <div className="category-scroll-container" style={{gridColumn: '1 / -1'}}>
+                  {uniqueCategories.map(cat => (
+                    <button 
+                      key={cat} 
+                      className={`category-chip ${selectedCategory === cat ? 'active' : ''}`}
+                      onClick={() => setSelectedCategory(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
             {activeTab === 'merch' && (
               <div style={{gridColumn: '1 / -1', background: '#ffe4e6', color: '#9f1239', padding: '12px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', fontSize: '0.9rem'}}>
                  ℹ️ Penukaran poin (Redeem) hanya dapat dilakukan langsung di Kasir/Cafe.
               </div>
             )}
-            {(activeTab === 'menu' ? menuItems : merchItems).map((item) => {
+            {(activeTab === 'menu' ? menuItems.filter(item => selectedCategory === 'Semua' || item.kategori === selectedCategory) : merchItems).map((item) => {
                const cartItem = cart.find(c => c.id_produk === item.id_produk);
                
                // Helper to convert Google Drive URL to direct image URL

@@ -197,6 +197,44 @@ h1 {
   background: linear-gradient(45deg, #f3e7e9 0%, #e3eeff 99%, #e3eeff 100%);
   width: 100%;
 }
+.category-scroll-container {
+  display: grid;
+  grid-template-rows: auto auto;
+  grid-auto-flow: column;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 4px 12px 4px;
+  margin-bottom: 16px;
+  scrollbar-width: none; /* Hide scrollbar for cleaner look */
+}
+
+.category-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.category-chip {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--primary);
+  background: white;
+  color: var(--primary);
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.category-chip:hover {
+  background: #fdf2f4;
+}
+
+.category-chip.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 4px 8px rgba(159, 18, 57, 0.2);
+}
 
 .product-info {
   padding: 12px;
