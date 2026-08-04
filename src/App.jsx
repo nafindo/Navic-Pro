@@ -96,6 +96,7 @@ function App() {
         parsedVariants = JSON.parse(item.varian);
       } catch (e) {
         console.error("Gagal parse varian:", e);
+        alert("Gagal membaca data varian: " + e.message + "\n\nVarian String: " + item.varian);
       }
       
       if (parsedVariants && Array.isArray(parsedVariants) && parsedVariants.length > 0) {
@@ -438,7 +439,7 @@ function App() {
                }
 
                return (
-                <div key={item.id_produk} className="product-card glass-card">
+                <div key={item.id_produk} className="product-card glass-card" onClick={() => handleProductClick(item)} style={{cursor: 'pointer'}}>
                   {imageUrl ? (
                     <img src={imageUrl} alt={item.nama_menu} style={{height: '120px', objectFit: 'cover', width: '100%'}} />
                   ) : (
@@ -455,18 +456,18 @@ function App() {
                     
                     {activeTab === 'menu' && (
                       totalQty > 0 && !item.varian ? (
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto'}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto'}} onClick={e => e.stopPropagation()}>
                           <button onClick={() => removeFromCart(cartItems[0].cartItemId)} style={{width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold'}}>-</button>
                           <span style={{fontWeight: 'bold'}}>{totalQty}</span>
                           <button onClick={() => handleProductClick(item)} style={{width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold'}}>+</button>
                         </div>
                       ) : totalQty > 0 && item.varian ? (
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto'}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto'}} onClick={e => e.stopPropagation()}>
                           <span style={{fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.9rem'}}>{totalQty} di keranjang</span>
                           <button onClick={() => handleProductClick(item)} style={{padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem'}}>+ Tambah</button>
                         </div>
                       ) : (
-                        <button className="add-btn" onClick={() => handleProductClick(item)}>+ Tambah</button>
+                        <button className="add-btn" onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}>+ Tambah</button>
                       )
                     )}
                   </div>
