@@ -166,8 +166,8 @@ function App() {
       <header className="glass-header">
         <div className="header-content">
           <div className="logo-section">
-            <img src="/Navic-Pro/navic_pro_logo.png" alt="Crunchy.co" style={{height: '40px'}} onError={(e)=>{e.target.style.display='none'}} />
-            <h1>Crunchy.co</h1>
+            <img src="/Navic-Pro/navic_pro_logo.png" alt="Navic Pro" style={{height: '40px'}} onError={(e)=>{e.target.src='./navic_pro_logo.png'}} />
+            <h1>Navic Pro</h1>
           </div>
           <div className="loyalty-badge">
             <span className="pts-label">Poin Anda:</span>
@@ -179,8 +179,8 @@ function App() {
       {/* Main Content */}
       <main className="main-content" style={{ display: showCheckout ? 'none' : 'block' }}>
         <div className="hero-banner">
-          <h2>Hai, {customerName || 'Pelanggan'}!</h2>
-          <p>Silakan pilih menu favorit Anda.</p>
+          <h2 style={{fontSize: '2.5rem', fontWeight: '900', color: 'var(--primary)', letterSpacing: '-1px'}}>Crunchy.co</h2>
+          <p style={{marginTop: '4px', fontWeight: '500', color: '#555'}}>Hai {customerName ? customerName : 'Pelanggan'}, silakan pilih menu favorit Anda.</p>
           
           <div style={{marginTop: '15px', display: 'flex', gap: '10px'}}>
              <input 
