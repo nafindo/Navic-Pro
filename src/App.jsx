@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchMasterData, checkLoyaltyPoints, createOrder } from './api'
+import { fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder } from './api'
 import './index.css'
 
 function App() {
@@ -38,14 +38,28 @@ function App() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetchMasterData();
+      const [res, merchRes] = await Promise.all([fetchMasterData(), fetchMerchandise()]);
+      
       if (res.success && res.data && res.data.produk) {
         const allProducts = res.data.produk.filter(p => p.is_tersedia);
         const isMerch = (p) => p.kategori && (p.kategori.toLowerCase() === 'merchandise' || p.kategori.toLowerCase() === 'hadiah' || p.kategori.toLowerCase().includes('tukar poin'));
         setMenuItems(allProducts.filter(p => !isMerch(p)));
-        setMerchItems(allProducts.filter(p => isMerch(p)));
       } else {
         setErrorMsg("Gagal memuat data menu dari server.");
+      }
+
+      if (merchRes.success && merchRes.data) {
+        // Map merchandise data to match cart item structure
+        const mappedMerch = merchRes.data
+          .filter(m => parseInt(m.stok) > 0)
+          .map(m => ({
+            id_produk: m.id_merchandise,
+            nama_menu: m.nama,
+            harga: parseInt(m.poin) || 0,
+            image_url: m.image_url,
+            kategori: 'Merchandise'
+          }));
+        setMerchItems(mappedMerch);
       }
     } catch (e) {
       setErrorMsg("Koneksi error: " + e.message);

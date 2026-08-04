@@ -22,6 +22,10 @@ export const fetchMasterData = async () => {
   return apiCall('SYNC_MASTER_DATA');
 };
 
+export const fetchMerchandise = async () => {
+  return apiCall('SYNC_MERCHANDISE');
+};
+
 export const checkLoyaltyPoints = async (phone) => {
   return apiCall('CHECK_POIN', { no_hp: phone });
 };
