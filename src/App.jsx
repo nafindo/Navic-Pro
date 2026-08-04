@@ -223,10 +223,20 @@ function App() {
           <div className="products-grid">
             {(activeTab === 'menu' ? menuItems : merchItems).map((item) => {
                const cartItem = cart.find(c => c.id_produk === item.id_produk);
+               
+               // Helper to convert Google Drive URL to direct image URL
+               let imageUrl = item.image_url;
+               if (imageUrl && imageUrl.includes('drive.google.com/file/d/')) {
+                 const match = imageUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                 if (match && match[1]) {
+                   imageUrl = `https://drive.google.com/uc?id=${match[1]}`;
+                 }
+               }
+
                return (
                 <div key={item.id_produk} className="product-card glass-card">
-                  {item.image_url ? (
-                    <img src={item.image_url} alt={item.nama_menu} style={{height: '120px', objectFit: 'cover', width: '100%'}} />
+                  {imageUrl ? (
+                    <img src={imageUrl} alt={item.nama_menu} style={{height: '120px', objectFit: 'cover', width: '100%'}} />
                   ) : (
                     <div className="product-image-placeholder"></div>
                   )}
