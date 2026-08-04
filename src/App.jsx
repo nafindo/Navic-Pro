@@ -304,7 +304,7 @@ function App() {
                  ℹ️ Penukaran poin (Redeem) hanya dapat dilakukan langsung di Kasir/Cafe.
               </div>
             )}
-            {(activeTab === 'menu' ? (selectedCategory === '' ? menuItems.slice(0, 20) : menuItems.filter(item => item.kategori === selectedCategory)) : merchItems).map((item) => {
+            {(activeTab === 'menu' ? (selectedCategory === '' ? [...menuItems].sort((a, b) => (b.terjual_minggu_ini || 0) - (a.terjual_minggu_ini || 0)).slice(0, 20) : menuItems.filter(item => item.kategori === selectedCategory)) : merchItems).map((item) => {
                const cartItem = cart.find(c => c.id_produk === item.id_produk);
                
                // Helper to convert Google Drive URL to direct image URL

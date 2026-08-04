@@ -17,7 +17,7 @@
 
 body {
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+  background: #ffffff;
   color: var(--text-main);
   min-height: 100vh;
   margin: 0;
@@ -44,11 +44,9 @@ body {
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  background: #ffffff;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   border-radius: 16px;
 }
 
@@ -90,9 +88,7 @@ body {
 h1 {
   font-size: 1.25rem;
   font-weight: 800;
-  background: -webkit-linear-gradient(45deg, #4F46E5, #ec4899);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--primary);
 }
 
 .loyalty-badge {
@@ -188,8 +184,8 @@ h1 {
 }
 
 .product-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .product-image-placeholder {
