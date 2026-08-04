@@ -166,8 +166,8 @@ function App() {
       <header className="glass-header">
         <div className="header-content">
           <div className="logo-section">
-            <img src="/Navic-Pro/navic_pro_logo.png" alt="Navic Pro" style={{height: '40px'}} onError={(e)=>{e.target.src='./navic_pro_logo.png'}} />
-            <h1>Navic Pro</h1>
+            <img src="/Navic-Pro/navic_pro_logo.png" alt="Crunchy.co" style={{height: '40px'}} onError={(e)=>{e.target.style.display='none'}} />
+            <h1>Crunchy.co</h1>
           </div>
           <div className="loyalty-badge">
             <span className="pts-label">Poin Anda:</span>
