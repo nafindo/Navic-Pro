@@ -90,7 +90,7 @@ body {
 h1 {
   font-size: 1.25rem;
   font-weight: 800;
-  background: -webkit-linear-gradient(45deg, var(--primary), #E63946);
+  background: -webkit-linear-gradient(45deg, #4F46E5, #ec4899);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
