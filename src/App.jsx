@@ -179,8 +179,10 @@ function App() {
       {/* Main Content */}
       <main className="main-content" style={{ display: showCheckout ? 'none' : 'block' }}>
         <div className="hero-banner">
-          <h2 style={{fontSize: '2.5rem', fontWeight: '900', color: 'var(--primary)', letterSpacing: '-1px'}}>Crunchy.co</h2>
-          <p style={{marginTop: '4px', fontWeight: '500', color: '#555'}}>Hai {customerName ? customerName : 'Pelanggan'}, silakan pilih menu favorit Anda.</p>
+          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+            <img src="/Navic-Pro/crunchy_logo.png" alt="Crunchy Logo" style={{ height: '80px', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }} onError={(e) => { e.target.style.display='none'; e.target.insertAdjacentHTML('afterend', '<h2 style="font-size: 2.5rem; font-weight: 900; color: white;">Crunchy.co</h2>'); }} />
+          </div>
+          <p style={{marginTop: '4px', fontWeight: '500'}}>Hai {customerName ? customerName : 'Pelanggan'}, silakan pilih menu favorit Anda.</p>
           
           <div style={{marginTop: '15px', display: 'flex', gap: '10px'}}>
              <input 
