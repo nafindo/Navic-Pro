@@ -325,29 +325,43 @@ function App() {
 
       {/* Main Content */}
       <main className="main-content" style={{ display: showCheckout ? 'none' : 'block' }}>
-        <div className="hero-banner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div className="hero-banner" style={{position: 'relative', overflow: 'hidden'}}>
+          {orderType === 'Dine-In' && tableNumber && (
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%) rotate(-10deg)',
+              fontSize: '5rem',
+              fontWeight: '900',
+              color: 'rgba(255, 255, 255, 0.15)',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              zIndex: 0,
+              userSelect: 'none',
+              letterSpacing: '2px'
+            }}>
+              {tableNumber.replace('-', ' ')}
+            </div>
+          )}
+
+          <div style={{position: 'relative', zIndex: 1}}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
               <img src="/Navic-Pro/navic_pro_logo.png" alt="Crunchy Logo" style={{ height: '60px', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }} onError={(e) => e.target.style.display='none'} />
               <h2 style={{fontSize: '2.5rem', fontWeight: '900', color: 'white', margin: 0, letterSpacing: '-1px'}}>Crunchy.co</h2>
             </div>
-            {orderType === 'Dine-In' && tableNumber && (
-              <div style={{background: 'rgba(0, 0, 0, 0.15)', backdropFilter: 'blur(8px)', padding: '8px 16px', borderRadius: '24px', border: '2px solid rgba(255,255,255,0.4)', fontSize: '1.4rem', fontWeight: '900', color: 'white', whiteSpace: 'nowrap', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'}}>
-                {tableNumber.replace('-', ' ')}
-              </div>
-            )}
-          </div>
-          <p style={{marginTop: '4px', fontWeight: '500'}}>Hai {customerName ? customerName : 'Pelanggan'}, silakan pilih menu favorit Anda.</p>
-          
-          <div style={{marginTop: '15px', display: 'flex', gap: '10px'}}>
-             <input 
-               type="tel" 
-               placeholder="Masukkan No HP / WA" 
-               value={phone} 
-               onChange={(e) => setPhone(e.target.value)}
-               style={{padding: '8px', borderRadius: '8px', border: '1px solid #ccc', flex: 1}}
-             />
-             <button onClick={handleCheckPoints} style={{background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 12px'}}>Cek Poin</button>
+            <p style={{marginTop: '4px', fontWeight: '500'}}>Hai {customerName ? customerName : 'Pelanggan'}, silakan pilih menu favorit Anda.</p>
+            
+            <div style={{marginTop: '15px', display: 'flex', gap: '10px'}}>
+               <input 
+                 type="tel" 
+                 placeholder="Masukkan No HP / WA" 
+                 value={phone} 
+                 onChange={(e) => setPhone(e.target.value)}
+                 style={{padding: '8px', borderRadius: '8px', border: '1px solid #ccc', flex: 1}}
+               />
+               <button onClick={handleCheckPoints} style={{background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 12px'}}>Cek Poin</button>
+            </div>
           </div>
         </div>
 
