@@ -1,0 +1,1 @@
+const fs = require('fs'); fetch('https://script.google.com/macros/s/AKfycbzPPFYAXX5n0oJxRjI6zPQzikIneXaaTqskCA9dKacbTtLeaW0ZUVy2K2waRIiqGoLp/exec', {method:'POST', body: JSON.stringify({action: 'SYNC_MASTER_DATA'})}).then(r=>r.text()).then(t=>fs.writeFileSync('api_response.json', t));  

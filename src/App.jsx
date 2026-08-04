@@ -14,6 +14,12 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
+  // Variant Modal State
+  const [selectedProductForVariant, setSelectedProductForVariant] = useState(null);
+  const [variantSelections, setVariantSelections] = useState({});
+  const [variantNotes, setVariantNotes] = useState('');
+  const [variantQty, setVariantQty] = useState(1);
+
   // Checkout State
   const [showCheckout, setShowCheckout] = useState(false);
   const [orderType, setOrderType] = useState('Dine-In'); // Dine-In or Delivery
@@ -80,33 +86,130 @@ function App() {
     }
   };
 
-  const addToCart = (item) => {
-    const existing = cart.find(c => c.id_produk === item.id_produk);
+  const handleProductClick = (item) => {
+    if (!item.is_tersedia) return;
+    
+    // Check if item has variants
+    if (item.varian) {
+      let parsedVariants = null;
+      try {
+        parsedVariants = JSON.parse(item.varian);
+      } catch (e) {
+        console.error("Gagal parse varian:", e);
+      }
+      
+      if (parsedVariants && Array.isArray(parsedVariants) && parsedVariants.length > 0) {
+        // Initialize default selections (e.g. first radio option)
+        const initialSelections = {};
+        parsedVariants.forEach(group => {
+          if (!group.isMultiple && group.options && group.options.length > 0) {
+            initialSelections[group.groupName] = group.options[0].name;
+          } else if (group.isMultiple) {
+            initialSelections[group.groupName] = {};
+          }
+        });
+        
+        setSelectedProductForVariant({ ...item, parsedVariants });
+        setVariantSelections(initialSelections);
+        setVariantNotes('');
+        setVariantQty(1);
+        return;
+      }
+    }
+    
+    // If no variants, add directly
+    addToCart(item);
+  };
+
+  const addToCart = (item, customVarianText = '', customPrice = null) => {
+    // Merging logic: same product ID, same variants, same custom price
+    const existing = cart.find(c => 
+      c.id_produk === item.id_produk && 
+      (c.varian_text || '') === customVarianText && 
+      (c.custom_price === customPrice)
+    );
+    
     if (existing) {
-      setCart(cart.map(c => c.id_produk === item.id_produk ? { ...c, qty: c.qty + 1 } : c));
+      setCart(cart.map(c => c.cartItemId === existing.cartItemId ? { ...c, qty: c.qty + (item.qty || 1) } : c));
     } else {
-      setCart([...cart, { ...item, qty: 1 }]);
+      setCart([...cart, { 
+        ...item, 
+        cartItemId: Date.now() + Math.random().toString(36).substr(2, 9), 
+        qty: item.qty || 1,
+        varian_text: customVarianText,
+        custom_price: customPrice !== null ? customPrice : item.harga
+      }]);
     }
   };
 
-  const removeFromCart = (id) => {
-    const existing = cart.find(c => c.id_produk === id);
+  const handleVariantSubmit = () => {
+    let extraPrice = 0;
+    const variantParts = [];
+    
+    selectedProductForVariant.parsedVariants.forEach(group => {
+      if (!group.isMultiple) {
+        const sel = variantSelections[group.groupName];
+        if (sel) {
+          const opt = group.options.find(o => o.name === sel);
+          if (opt) {
+            extraPrice += opt.price || 0;
+            if (opt.price > 0) {
+               variantParts.push(`${sel} (+Rp ${opt.price.toLocaleString('id-ID')})`);
+            } else {
+               variantParts.push(`${sel}`);
+            }
+          }
+        }
+      } else {
+        const selObj = variantSelections[group.groupName] || {};
+        const selectedNames = Object.keys(selObj).filter(k => selObj[k] > 0);
+        selectedNames.forEach(name => {
+          const qty = selObj[name];
+          const opt = group.options.find(o => o.name === name);
+          if (opt) {
+            extraPrice += (opt.price || 0) * qty;
+            if (qty > 1) {
+              variantParts.push(`${name} x${qty}`);
+            } else {
+              variantParts.push(`${name}`);
+            }
+          }
+        });
+      }
+    });
+
+    const customPrice = parseInt(selectedProductForVariant.harga) + extraPrice;
+    const varianText = variantParts.join(', ');
+    
+    const itemToAdd = {
+      ...selectedProductForVariant,
+      qty: variantQty,
+      catatan: variantNotes
+    };
+    
+    addToCart(itemToAdd, varianText, customPrice);
+    setSelectedProductForVariant(null);
+  };
+
+  const removeFromCart = (cartItemId) => {
+    const existing = cart.find(c => c.cartItemId === cartItemId);
+    if (!existing) return;
     if (existing.qty > 1) {
-      setCart(cart.map(c => c.id_produk === id ? { ...c, qty: c.qty - 1 } : c));
+      setCart(cart.map(c => c.cartItemId === cartItemId ? { ...c, qty: c.qty - 1 } : c));
     } else {
-      setCart(cart.filter(c => c.id_produk !== id));
+      setCart(cart.filter(c => c.cartItemId !== cartItemId));
     }
   };
 
   const cartTotalRupiah = cart.filter(c => {
     const isMerch = c.kategori && (c.kategori.toLowerCase() === 'merchandise' || c.kategori.toLowerCase() === 'hadiah' || c.kategori.toLowerCase().includes('tukar poin'));
     return !isMerch;
-  }).reduce((sum, item) => sum + ((item.harga || 0) * item.qty), 0);
+  }).reduce((sum, item) => sum + ((item.custom_price !== undefined ? item.custom_price : item.harga || 0) * item.qty), 0);
   
   const cartTotalPoin = cart.filter(c => {
     const isMerch = c.kategori && (c.kategori.toLowerCase() === 'merchandise' || c.kategori.toLowerCase() === 'hadiah' || c.kategori.toLowerCase().includes('tukar poin'));
     return isMerch;
-  }).reduce((sum, item) => sum + ((item.harga || 0) * item.qty), 0);
+  }).reduce((sum, item) => sum + ((item.custom_price !== undefined ? item.custom_price : item.harga || 0) * item.qty), 0);
   const cartTotal = cartTotalRupiah; // for display in checkout button
   const cartItemCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
@@ -134,14 +237,19 @@ function App() {
     const newOrderId = "SELF-" + Date.now().toString().slice(-6);
     
     // Convert cart items to matching format
-    const items = cart.map(c => ({
-      id_produk: c.id_produk,
-      nama_produk: c.nama_menu,
-      harga_satuan: c.harga,
-      quantity: c.qty,
-      notes: "",
-      subtotal: c.harga * c.qty
-    }));
+    const items = cart.map(c => {
+      const price = c.custom_price !== undefined ? c.custom_price : c.harga;
+      const combinedNotes = c.varian_text ? (c.catatan ? c.varian_text + " | " + c.catatan : c.varian_text) : (c.catatan || "");
+      
+      return {
+        id_produk: c.id_produk,
+        nama_menu: c.nama_menu,
+        harga_satuan: price,
+        qty: c.qty,
+        catatan: combinedNotes,
+        subtotal: price * c.qty
+      };
+    });
 
     const payload = {
       order_id: newOrderId,
@@ -308,7 +416,8 @@ function App() {
               </div>
             )}
             {(activeTab === 'menu' ? (selectedCategory === '' ? [...menuItems].sort((a, b) => (b.terjual_minggu_ini || 0) - (a.terjual_minggu_ini || 0)).slice(0, 20) : menuItems.filter(item => item.kategori === selectedCategory)) : merchItems).map((item) => {
-               const cartItem = cart.find(c => c.id_produk === item.id_produk);
+               const cartItems = cart.filter(c => c.id_produk === item.id_produk);
+               const totalQty = cartItems.reduce((sum, c) => sum + c.qty, 0);
                
                // Helper to convert Google Drive URL to direct image URL
                let imageUrl = item.image_url;
@@ -345,14 +454,19 @@ function App() {
                     )}
                     
                     {activeTab === 'menu' && (
-                      cartItem ? (
+                      totalQty > 0 && !item.varian ? (
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto'}}>
-                          <button onClick={() => removeFromCart(item.id_produk)} style={{width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold'}}>-</button>
-                          <span style={{fontWeight: 'bold'}}>{cartItem.qty}</span>
-                          <button onClick={() => addToCart(item)} style={{width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold'}}>+</button>
+                          <button onClick={() => removeFromCart(cartItems[0].cartItemId)} style={{width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold'}}>-</button>
+                          <span style={{fontWeight: 'bold'}}>{totalQty}</span>
+                          <button onClick={() => handleProductClick(item)} style={{width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold'}}>+</button>
+                        </div>
+                      ) : totalQty > 0 && item.varian ? (
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto'}}>
+                          <span style={{fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.9rem'}}>{totalQty} di keranjang</span>
+                          <button onClick={() => handleProductClick(item)} style={{padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem'}}>+ Tambah</button>
                         </div>
                       ) : (
-                        <button className="add-btn" onClick={() => addToCart(item)}>+ Tambah</button>
+                        <button className="add-btn" onClick={() => handleProductClick(item)}>+ Tambah</button>
                       )
                     )}
                   </div>
@@ -376,13 +490,20 @@ function App() {
 
         <div className="glass-card" style={{padding: '16px', marginBottom: '24px'}}>
           {cart.map(c => (
-            <div key={c.id_produk} style={{display: 'flex', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '12px'}}>
-              <div>
+            <div key={c.cartItemId} style={{display: 'flex', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '12px'}}>
+              <div style={{flex: 1, paddingRight: '10px'}}>
                 <div style={{fontWeight: 'bold'}}>{c.nama_menu}</div>
-                <div style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>{c.qty} x Rp {parseInt(c.harga).toLocaleString('id-ID')}</div>
+                {c.varian_text && <div style={{fontSize: '0.75rem', color: '#666', marginTop: '2px', fontStyle: 'italic'}}>{c.varian_text}</div>}
+                {c.catatan && <div style={{fontSize: '0.75rem', color: '#666', marginTop: '2px'}}>Catatan: {c.catatan}</div>}
+                <div style={{fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px'}}>
+                  <button onClick={() => removeFromCart(c.cartItemId)} style={{background: 'none', border: '1px solid #ccc', borderRadius: '4px', width: '24px', height: '24px', marginRight: '8px', cursor: 'pointer'}}>-</button>
+                  {c.qty} 
+                  <button onClick={() => addToCart(c, c.varian_text, c.custom_price)} style={{background: 'none', border: '1px solid #ccc', borderRadius: '4px', width: '24px', height: '24px', marginLeft: '8px', cursor: 'pointer'}}>+</button>
+                  <span style={{marginLeft: '8px'}}>x Rp {(c.custom_price !== undefined ? c.custom_price : c.harga).toLocaleString('id-ID')}</span>
+                </div>
               </div>
               <div style={{fontWeight: 'bold'}}>
-                 Rp {(c.qty * c.harga).toLocaleString('id-ID')}
+                 Rp {(c.qty * (c.custom_price !== undefined ? c.custom_price : c.harga)).toLocaleString('id-ID')}
               </div>
             </div>
           ))}
@@ -454,6 +575,128 @@ function App() {
             <span className="cart-total">Rp {cartTotal.toLocaleString('id-ID')}</span>
           </div>
           <button className="checkout-btn" onClick={() => setShowCheckout(true)}>Lihat Keranjang</button>
+        </div>
+      )}
+
+      {/* Variant Modal */}
+      {selectedProductForVariant && (
+        <div className="modal-overlay">
+          <div className="variant-modal">
+            <div className="modal-drag-handle"></div>
+            <h2 className="modal-title">{selectedProductForVariant.nama_menu}</h2>
+            
+            <div className="modal-scroll-area">
+              {selectedProductForVariant.parsedVariants.map((group, gIdx) => (
+                <div key={gIdx} className="variant-group">
+                  <h3 className="variant-group-title">{group.groupName}</h3>
+                  {group.options.map((opt, oIdx) => {
+                    if (!group.isMultiple) {
+                      const isSelected = variantSelections[group.groupName] === opt.name;
+                      return (
+                        <div key={oIdx} className={`variant-option ${isSelected ? 'selected' : ''}`} onClick={() => setVariantSelections({...variantSelections, [group.groupName]: opt.name})}>
+                          <div className="variant-left">
+                            <div className={`radio-circle ${isSelected ? 'active' : ''}`}>
+                               {isSelected && <div className="radio-inner"></div>}
+                            </div>
+                            <span className="variant-name">{opt.name} {opt.price > 0 ? `(+Rp ${opt.price.toLocaleString('id-ID')})` : ''}</span>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      const qty = (variantSelections[group.groupName] || {})[opt.name] || 0;
+                      const isSelected = qty > 0;
+                      return (
+                        <div key={oIdx} className={`variant-option multiple ${isSelected ? 'selected' : ''}`}>
+                          <div className="variant-left" onClick={() => {
+                            const currentSel = variantSelections[group.groupName] || {};
+                            setVariantSelections({
+                              ...variantSelections,
+                              [group.groupName]: {
+                                ...currentSel,
+                                [opt.name]: isSelected ? 0 : 1
+                              }
+                            });
+                          }}>
+                            <div className={`checkbox-square ${isSelected ? 'active' : ''}`}>
+                               {isSelected && '✓'}
+                            </div>
+                            <span className="variant-name">{opt.name} {opt.price > 0 ? `(+Rp ${opt.price.toLocaleString('id-ID')})` : ''}</span>
+                          </div>
+                          {isSelected && (
+                            <div className="variant-qty-controls">
+                               <button onClick={() => {
+                                  const currentSel = variantSelections[group.groupName] || {};
+                                  setVariantSelections({
+                                    ...variantSelections,
+                                    [group.groupName]: { ...currentSel, [opt.name]: Math.max(0, qty - 1) }
+                                  });
+                               }}>-</button>
+                               <span>{qty}</span>
+                               <button onClick={() => {
+                                  const currentSel = variantSelections[group.groupName] || {};
+                                  setVariantSelections({
+                                    ...variantSelections,
+                                    [group.groupName]: { ...currentSel, [opt.name]: qty + 1 }
+                                  });
+                               }}>+</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  })}
+                </div>
+              ))}
+              
+              <div className="variant-group">
+                 <input 
+                   type="text" 
+                   className="variant-notes-input" 
+                   placeholder="Catatan Tambahan (Opsional)" 
+                   value={variantNotes}
+                   onChange={e => setVariantNotes(e.target.value)}
+                 />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <div className="main-qty-controls">
+                <span className="main-qty-label">Jumlah:</span>
+                <div className="qty-buttons">
+                  <button onClick={() => setVariantQty(Math.max(1, variantQty - 1))}>-</button>
+                  <span>{variantQty}</span>
+                  <button onClick={() => setVariantQty(variantQty + 1)}>+</button>
+                </div>
+              </div>
+              
+              <button className="submit-variant-btn" onClick={handleVariantSubmit}>
+                 Tambahkan - Rp {(() => {
+                    let extraPrice = 0;
+                    selectedProductForVariant.parsedVariants.forEach(group => {
+                      if (!group.isMultiple) {
+                        const sel = variantSelections[group.groupName];
+                        if (sel) {
+                          const opt = group.options.find(o => o.name === sel);
+                          if (opt) extraPrice += opt.price || 0;
+                        }
+                      } else {
+                        const selObj = variantSelections[group.groupName] || {};
+                        const selectedNames = Object.keys(selObj).filter(k => selObj[k] > 0);
+                        selectedNames.forEach(name => {
+                          const qty = selObj[name];
+                          const opt = group.options.find(o => o.name === name);
+                          if (opt) extraPrice += (opt.price || 0) * qty;
+                        });
+                      }
+                    });
+                    const totalPrice = (parseInt(selectedProductForVariant.harga) + extraPrice) * variantQty;
+                    return totalPrice.toLocaleString('id-ID');
+                 })()}
+              </button>
+            </div>
+            
+            <button className="modal-close-btn" onClick={() => setSelectedProductForVariant(null)}>×</button>
+          </div>
         </div>
       )}
     </div>
