@@ -22,7 +22,7 @@ function App() {
 
   // Checkout State
   const [showCheckout, setShowCheckout] = useState(false);
-  const [orderType, setOrderType] = useState('Dine-In'); // Dine-In or Delivery
+  const [orderType, setOrderType] = useState('Delivery'); // Dine-In or Delivery
   const [tableNumber, setTableNumber] = useState('');
   const [address, setAddress] = useState('');
   const [location, setLocation] = useState('');
