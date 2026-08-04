@@ -332,7 +332,7 @@ function App() {
               <h2 style={{fontSize: '2.5rem', fontWeight: '900', color: 'white', margin: 0, letterSpacing: '-1px'}}>Crunchy.co</h2>
             </div>
             {orderType === 'Dine-In' && tableNumber && (
-              <div style={{background: 'rgba(255,255,255,0.2)', padding: '6px 12px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.5)', fontSize: '0.9rem', fontWeight: 'bold', color: 'white', whiteSpace: 'nowrap'}}>
+              <div style={{background: 'rgba(0, 0, 0, 0.15)', backdropFilter: 'blur(8px)', padding: '8px 16px', borderRadius: '24px', border: '2px solid rgba(255,255,255,0.4)', fontSize: '1.4rem', fontWeight: '900', color: 'white', whiteSpace: 'nowrap', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'}}>
                 {tableNumber.replace('-', ' ')}
               </div>
             )}
