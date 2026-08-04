@@ -56,8 +56,8 @@ function App() {
     if (phone.length < 9) return;
     const res = await checkLoyaltyPoints(phone);
     if (res.success && res.data) {
-      setPoints(res.data.poin);
-      if (res.data.nama_pelanggan) setCustomerName(res.data.nama_pelanggan);
+      setPoints(res.data.total_poin);
+      if (res.data.nama) setCustomerName(res.data.nama);
     } else {
       setPoints(0);
     }
@@ -81,7 +81,9 @@ function App() {
     }
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + ((item.harga || 0) * item.qty), 0);
+  const cartTotalRupiah = cart.filter(c => c.kategori !== 'Merchandise').reduce((sum, item) => sum + ((item.harga || 0) * item.qty), 0);
+  const cartTotalPoin = cart.filter(c => c.kategori === 'Merchandise').reduce((sum, item) => sum + ((item.harga || 0) * item.qty), 0);
+  const cartTotal = cartTotalRupiah; // for display in checkout button
   const cartItemCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
   const getGPSLocation = () => {
@@ -99,6 +101,10 @@ function App() {
   const submitOrder = async () => {
     if (!customerName) return alert("Mohon masukkan nama Anda!");
     if (orderType === 'Delivery' && !address) return alert("Mohon masukkan alamat pengiriman!");
+    if (cartTotalPoin > 0) {
+      if (points === null) return alert("Silakan Cek Poin terlebih dahulu sebelum menukar hadiah!");
+      if (points < cartTotalPoin) return alert(`Poin tidak cukup! Poin Anda: ${points}, Butuh: ${cartTotalPoin}`);
+    }
     
     setLoading(true);
     const newOrderId = "SELF-" + Date.now().toString().slice(-6);
@@ -123,13 +129,18 @@ function App() {
       koordinat_lokasi: location,
       metode_bayar: paymentMethod,
       items: items,
-      subtotal: cartTotal,
+      subtotal: cartTotalRupiah,
       pajak_ppn: 0,
       diskon: 0,
-      total_bayar: cartTotal,
-      poin_didapat: Math.floor(cartTotal / 10000), // contoh: 1 poin per 10rb
-      poin_ditukar: 0
+      total_bayar: cartTotalRupiah,
+      poin_didapat: Math.floor(cartTotalRupiah / 10000), // contoh: 1 poin per 10rb
+      poin_ditukar: cartTotalPoin
     };
+    
+    // Override metode bayar jika hanya tukar poin
+    if (cartTotalRupiah === 0 && cartTotalPoin > 0) {
+       payload.metode_bayar = 'Tukar Poin';
+    }
 
     const res = await createOrder(payload);
     if (res.success) {
