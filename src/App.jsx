@@ -226,10 +226,19 @@ function App() {
                
                // Helper to convert Google Drive URL to direct image URL
                let imageUrl = item.image_url;
-               if (imageUrl && imageUrl.includes('drive.google.com/file/d/')) {
-                 const match = imageUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-                 if (match && match[1]) {
-                   imageUrl = `https://drive.google.com/uc?id=${match[1]}`;
+               if (imageUrl) {
+                 let fileId = null;
+                 if (imageUrl.includes('drive.google.com/file/d/')) {
+                   const match = imageUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                   if (match) fileId = match[1];
+                 } else if (imageUrl.includes('drive.google.com/uc')) {
+                   const match = imageUrl.match(/id=([a-zA-Z0-9_-]+)/);
+                   if (match) fileId = match[1];
+                 }
+                 
+                 if (fileId) {
+                   // Gunakan lh3.googleusercontent.com yang dijamin bisa nampil di img tag browser modern
+                   imageUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
                  }
                }
 
