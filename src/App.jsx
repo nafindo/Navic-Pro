@@ -4,7 +4,7 @@ import './index.css'
 
 function App() {
   const [activeTab, setActiveTab] = useState('menu');
-  const [selectedCategory, setSelectedCategory] = useState('Terlaris');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [menuItems, setMenuItems] = useState([]);
   const [merchItems, setMerchItems] = useState([]);
   const [cart, setCart] = useState([]);
@@ -264,7 +264,6 @@ function App() {
               if (uniqueCategories.length === 0) return null;
               
               const categoryCards = [
-                { name: 'Terlaris', image: 'https://cdn-icons-png.flaticon.com/512/763/763812.png' },
                 ...uniqueCategories.map(cat => {
                    const firstItem = menuItems.find(m => m.kategori === cat && m.image_url);
                    let catImage = 'https://cdn-icons-png.flaticon.com/512/3170/3170733.png'; // fallback image
@@ -305,7 +304,7 @@ function App() {
                  ℹ️ Penukaran poin (Redeem) hanya dapat dilakukan langsung di Kasir/Cafe.
               </div>
             )}
-            {(activeTab === 'menu' ? (selectedCategory === 'Terlaris' ? menuItems.slice(0, 20) : menuItems.filter(item => item.kategori === selectedCategory)) : merchItems).map((item) => {
+            {(activeTab === 'menu' ? (selectedCategory === '' ? menuItems.slice(0, 20) : menuItems.filter(item => item.kategori === selectedCategory)) : merchItems).map((item) => {
                const cartItem = cart.find(c => c.id_produk === item.id_produk);
                
                // Helper to convert Google Drive URL to direct image URL
