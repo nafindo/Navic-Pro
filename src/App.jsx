@@ -333,7 +333,7 @@ function App() {
               right: '-10px',
               fontSize: '4.5rem',
               fontWeight: '900',
-              color: 'rgba(255, 255, 255, 0.3)',
+              color: 'rgba(255, 255, 255, 0.2)',
               whiteSpace: 'nowrap',
               pointerEvents: 'none',
               zIndex: 0,
