@@ -344,6 +344,13 @@ function App() {
           </div>
         </div>
 
+        {orderType === 'Dine-In' && (
+          <div style={{margin: '16px', padding: '12px', background: '#fff', borderRadius: '8px', border: '1px dashed var(--primary)', textAlign: 'center'}}>
+            <div style={{fontSize: '0.9rem', marginBottom: '8px', color: '#334155'}}>Kami siap layanan antar, klik di bawah! Siap antar ke rumah Anda.</div>
+            <button onClick={() => window.location.href = window.location.pathname} style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', width: '100%'}}>🛵 Layanan Antar</button>
+          </div>
+        )}
+
         {/* Tab Navigation */}
         <div className="tab-navigation">
           <button 
