@@ -6,8 +6,9 @@ export const apiCall = async (action, payload = {}) => {
       method: 'POST',
       body: JSON.stringify({ action, payload }),
       headers: {
-        'Content-Type': 'text/plain;charset=utf-8', // GAS requires this to bypass CORS preflight
+        'Content-Type': 'text/plain;charset=utf-8',
       },
+      redirect: 'follow'
     });
     const data = await response.json();
     return data;
