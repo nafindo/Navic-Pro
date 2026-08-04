@@ -333,6 +333,7 @@ function App() {
               right: '-10px',
               fontSize: '4.5rem',
               fontWeight: '900',
+              fontFamily: '"Rudolf Koch", sans-serif',
               color: 'transparent',
               WebkitTextStroke: '2px rgba(255, 255, 255, 0.3)',
               whiteSpace: 'nowrap',
