@@ -4,7 +4,7 @@ import './index.css'
 
 function App() {
   const [activeTab, setActiveTab] = useState('menu');
-  const [selectedCategory, setSelectedCategory] = useState('Semua');
+  const [selectedCategory, setSelectedCategory] = useState('Terlaris');
   const [menuItems, setMenuItems] = useState([]);
   const [merchItems, setMerchItems] = useState([]);
   const [cart, setCart] = useState([]);
@@ -260,18 +260,42 @@ function App() {
         ) : (
           <div className="products-grid">
             {activeTab === 'menu' && (() => {
-              const uniqueCategories = ['Semua', ...new Set(menuItems.map(item => item.kategori).filter(Boolean))];
-              if (uniqueCategories.length <= 1) return null;
+              const uniqueCategories = [...new Set(menuItems.map(item => item.kategori).filter(Boolean))];
+              if (uniqueCategories.length === 0) return null;
+              
+              const categoryCards = [
+                { name: 'Terlaris', image: 'https://cdn-icons-png.flaticon.com/512/763/763812.png' },
+                ...uniqueCategories.map(cat => {
+                   const firstItem = menuItems.find(m => m.kategori === cat && m.image_url);
+                   let catImage = 'https://cdn-icons-png.flaticon.com/512/3170/3170733.png'; // fallback image
+                   if (firstItem && firstItem.image_url) {
+                      let fileId = null;
+                      if (firstItem.image_url.includes('drive.google.com/file/d/')) {
+                        const match = firstItem.image_url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                        if (match) fileId = match[1];
+                      } else if (firstItem.image_url.includes('drive.google.com/uc')) {
+                        const match = firstItem.image_url.match(/id=([a-zA-Z0-9_-]+)/);
+                        if (match) fileId = match[1];
+                      }
+                      if (fileId) {
+                         catImage = `https://lh3.googleusercontent.com/d/${fileId}`;
+                      }
+                   }
+                   return { name: cat, image: catImage };
+                })
+              ];
+
               return (
                 <div className="category-scroll-container" style={{gridColumn: '1 / -1'}}>
-                  {uniqueCategories.map(cat => (
-                    <button 
-                      key={cat} 
-                      className={`category-chip ${selectedCategory === cat ? 'active' : ''}`}
-                      onClick={() => setSelectedCategory(cat)}
+                  {categoryCards.map(cat => (
+                    <div 
+                      key={cat.name} 
+                      className={`category-card ${selectedCategory === cat.name ? 'active' : ''}`}
+                      onClick={() => setSelectedCategory(cat.name)}
                     >
-                      {cat}
-                    </button>
+                      <img src={cat.image} alt={cat.name} className="category-img" onError={(e)=>{e.target.src='https://cdn-icons-png.flaticon.com/512/3170/3170733.png'}}/>
+                      <span className="category-name">{cat.name}</span>
+                    </div>
                   ))}
                 </div>
               );
@@ -281,7 +305,7 @@ function App() {
                  ℹ️ Penukaran poin (Redeem) hanya dapat dilakukan langsung di Kasir/Cafe.
               </div>
             )}
-            {(activeTab === 'menu' ? menuItems.filter(item => selectedCategory === 'Semua' || item.kategori === selectedCategory) : merchItems).map((item) => {
+            {(activeTab === 'menu' ? (selectedCategory === 'Terlaris' ? menuItems.slice(0, 20) : menuItems.filter(item => item.kategori === selectedCategory)) : merchItems).map((item) => {
                const cartItem = cart.find(c => c.id_produk === item.id_produk);
                
                // Helper to convert Google Drive URL to direct image URL
