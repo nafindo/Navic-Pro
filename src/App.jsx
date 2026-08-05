@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder, checkOrderStatus, checkOrdersByPhone } from './api'
+import { fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder, checkOrderStatus, checkOrdersByPhone, uploadPaymentProof } from './api'
 import './index.css'
 
 const CAFE_LAT = -6.870245;
@@ -52,6 +52,7 @@ function App() {
   const [trackOrderResult, setTrackOrderResult] = useState(null);
   const [trackOrdersList, setTrackOrdersList] = useState(null);
   const [isTracking, setIsTracking] = useState(false);
+  const [isUploadingPayment, setIsUploadingPayment] = useState({});
 
   // Security States
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -611,15 +612,18 @@ function App() {
                 if (s === 'SIAP' || s === 'OTW') return {bg: '#d1fae5', color: '#059669'};
                 if (s === 'SELESAI') return {bg: '#f1f5f9', color: '#64748b'};
                 if (s === 'DIBATALKAN') return {bg: '#fee2e2', color: '#dc2626'};
+                if (s === 'VERIFIKASI PEMBAYARAN') return {bg: '#dbeafe', color: '#1d4ed8'};
+                if (s === 'DIKIRIM') return {bg: '#e0e7ff', color: '#4338ca'};
                 return {bg: '#fef3c7', color: '#d97706'};
               };
               const statusLabel = (s) => {
                 if (s === 'PESANAN BARU') return '⏳ Menunggu Konfirmasi';
                 if (s === 'MENUNGGU ONGKIR') return '⏳ Menunggu Ongkir';
                 if (s === 'MENUNGGU PEMBAYARAN') return '💳 Menunggu Pembayaran';
+                if (s === 'VERIFIKASI PEMBAYARAN') return '🔍 Verifikasi Pembayaran';
                 if (s === 'SEDANG DIPROSES' || s === 'Sedang Diproses') return '🍳 Sedang Diproses';
-                if (s === 'SIAP') return '✅ Pesanan Siap';
-                if (s === 'OTW') return '🚀 Sedang Diantar';
+                if (s === 'SIAP' || s === 'SIAP SAJI') return '✅ Pesanan Siap';
+                if (s === 'OTW' || s === 'DIKIRIM') return '🚀 Sedang Diantar';
                 if (s === 'SELESAI') return '🎉 Selesai';
                 if (s === 'DIBATALKAN') return '❌ Dibatalkan';
                 return s;
@@ -643,6 +647,26 @@ function App() {
                 setIsTracking(false);
                 if (res.success && res.data) setTrackOrdersList(res.data);
                 else setTrackOrdersList([]);
+              };
+
+              const handleFileChange = async (e, orderId) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                  const base64String = reader.result;
+                  setIsUploadingPayment(prev => ({...prev, [orderId]: true}));
+                  const res = await uploadPaymentProof(orderId, base64String);
+                  setIsUploadingPayment(prev => ({...prev, [orderId]: false}));
+                  if (res.success) {
+                    alert("Bukti transfer berhasil diunggah! Menunggu verifikasi kasir.");
+                    doRefresh();
+                  } else {
+                    alert("Gagal mengunggah bukti: " + res.message);
+                  }
+                };
+                reader.readAsDataURL(file);
               };
 
               return (
@@ -713,6 +737,24 @@ function App() {
                             <div style={{fontSize: '0.8rem', color: '#94a3b8'}}>💳 {order.metode_bayar}</div>
                             <div style={{fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary)'}}>Rp {(order.total_bayar || 0).toLocaleString('id-ID')}</div>
                           </div>
+
+                          {/* Payment Upload Section */}
+                          {order.status_pesanan === 'MENUNGGU PEMBAYARAN' && (order.metode_bayar === 'Transfer' || order.metode_bayar === 'QRIS') && (
+                            <div style={{padding: '16px 20px', background: '#eff6ff', borderTop: '1px solid #bfdbfe'}}>
+                              <p style={{fontSize: '0.85rem', color: '#1e3a8a', marginBottom: '12px'}}>
+                                Silakan lakukan pembayaran ke QRIS berikut, lalu unggah bukti transfer Anda:
+                              </p>
+                              <div style={{background: 'white', padding: '10px', borderRadius: '8px', textAlign: 'center', marginBottom: '12px', border: '1px solid #dbeafe'}}>
+                                <img src="/dummy-qris.png" alt="QRIS" style={{width: '150px', height: '150px', objectFit: 'contain', background: '#f1f5f9'}} />
+                                <div style={{fontSize: '0.75rem', color: '#64748b', marginTop: '6px'}}>*Contoh QRIS (Harap diganti dengan yang asli)</div>
+                              </div>
+                              
+                              <label style={{display: 'block', background: isUploadingPayment[order.order_id] ? '#93c5fd' : '#2563eb', color: 'white', textAlign: 'center', padding: '10px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.9rem', cursor: isUploadingPayment[order.order_id] ? 'not-allowed' : 'pointer'}}>
+                                {isUploadingPayment[order.order_id] ? '⏳ Mengunggah...' : '📤 Unggah Bukti Transfer'}
+                                <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => handleFileChange(e, order.order_id)} disabled={isUploadingPayment[order.order_id]} />
+                              </label>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

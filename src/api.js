@@ -41,3 +41,7 @@ export const checkOrderStatus = async (orderId) => {
 export const checkOrdersByPhone = async (phone) => {
   return apiCall('CHECK_ORDERS_BY_PHONE', { no_hp: phone });
 };
+
+export const uploadPaymentProof = async (orderId, base64Image) => {
+  return apiCall('UPLOAD_PAYMENT_PROOF', { order_id: orderId, base64_image: base64Image });
+};
