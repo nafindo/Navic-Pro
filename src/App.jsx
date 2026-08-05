@@ -548,7 +548,8 @@ function App() {
            <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Nama Pemesan</label>
            <input type="text" value={customerName} onChange={e=>setCustomerName(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}} placeholder="Nama Anda" />
 
-
+           <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Nomor HP / WA</label>
+           <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}} placeholder="08xx xxxx xxxx" />
 
            {orderType === 'Dine-In' && (
              <>
@@ -571,8 +572,8 @@ function App() {
 
            <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Metode Pembayaran</label>
            <select value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}}>
-             <option value="Tunai">Tunai / Bayar di Tempat (COD)</option>
-             <option value="Transfer">Transfer Bank / QRIS (Selesaikan dengan Kasir)</option>
+             <option value="Tunai">Tunai</option>
+             <option value="QRIS">QRIS</option>
            </select>
         </div>
 
