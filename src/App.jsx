@@ -548,23 +548,7 @@ function App() {
            <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Nama Pemesan</label>
            <input type="text" value={customerName} onChange={e=>setCustomerName(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}} placeholder="Nama Anda" />
 
-           <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Tipe Pesanan</label>
-           {orderType === 'Dine-In' ? (
-             <div style={{marginBottom: '16px', padding: '12px', background: '#eef2ff', borderRadius: '8px', border: '1px solid var(--primary)'}}>
-               <div style={{fontWeight: 'bold', color: 'var(--primary)', marginBottom: '4px'}}>Mode: Makan di Tempat (Dine-In)</div>
-               <div style={{fontSize: '0.9rem'}}>Nomor meja telah terkunci dari QR Code.</div>
-               
-               <div style={{marginTop: '16px', padding: '12px', background: '#fff', borderRadius: '8px', border: '1px dashed var(--primary)', textAlign: 'center'}}>
-                 <div style={{fontSize: '0.9rem', marginBottom: '8px', color: '#334155'}}>Kami siap layanan antar, klik di bawah! Siap antar ke rumah Anda.</div>
-                 <button onClick={() => window.location.href = window.location.pathname} style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', width: '100%'}}>🛵 Layanan Antar</button>
-               </div>
-             </div>
-           ) : (
-             <div style={{marginBottom: '16px', padding: '12px', background: '#eef2ff', borderRadius: '8px', border: '1px solid var(--primary)'}}>
-               <div style={{fontWeight: 'bold', color: 'var(--primary)', marginBottom: '4px'}}>Mode: Pesan Antar (Delivery)</div>
-               <div style={{fontSize: '0.9rem'}}>Pesanan akan dikirim ke alamat Anda.</div>
-             </div>
-           )}
+
 
            {orderType === 'Dine-In' && (
              <>
