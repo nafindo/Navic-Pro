@@ -518,6 +518,7 @@ function App() {
         </div>
 
         <div className="glass-card" style={{padding: '16px', marginBottom: '24px'}}>
+          <h3 style={{marginBottom: '16px'}}>Detail Pesanan</h3>
           {cart.map(c => (
             <div key={c.cartItemId} style={{display: 'flex', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '12px'}}>
               <div style={{flex: 1, paddingRight: '10px'}}>
@@ -543,7 +544,7 @@ function App() {
         </div>
 
         <div className="glass-card" style={{padding: '16px', marginBottom: '24px'}}>
-           <h3 style={{marginBottom: '16px'}}>Detail Pesanan</h3>
+           <h3 style={{marginBottom: '16px'}}>Detail Pemesan</h3>
            
            <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Nama Pemesan</label>
            <input type="text" value={customerName} onChange={e=>setCustomerName(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}} placeholder="Nama Anda" />
