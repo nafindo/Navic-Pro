@@ -604,73 +604,125 @@ function App() {
               );
             })()}
 
-            {activeTab === 'orders' && (
-              <div style={{ gridColumn: '1 / -1', background: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', minHeight: '300px' }}>
-                <h3 style={{marginBottom: '16px', color: 'var(--primary)', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px'}}>Lacak Pesanan Anda</h3>
-                <div style={{display: 'flex', gap: '8px', marginBottom: '16px'}}>
-                  <input 
-                    type="text" 
-                    placeholder="Order ID (Contoh: SELF-1234)" 
-                    value={trackOrderId} 
-                    onChange={(e) => setTrackOrderId(e.target.value.toUpperCase())}
-                    style={{flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', textTransform: 'uppercase'}}
-                  />
-                  <button 
-                    onClick={async () => {
-                      if(!trackOrderId) return;
-                      setIsTracking(true);
-                      const res = await checkOrderStatus(trackOrderId);
-                      setIsTracking(false);
-                      if (res.success && res.data) {
-                        setTrackOrderResult(res.data);
-                      } else {
-                        alert("Pesanan tidak ditemukan atau sistem sedang sibuk.");
-                        setTrackOrderResult(null);
-                      }
-                    }}
-                    disabled={isTracking}
-                    style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold'}}
-                  >
-                    {isTracking ? 'Mencari...' : 'Lacak'}
-                  </button>
-                </div>
+            {activeTab === 'orders' && (() => {
+              const savedOrderId = trackOrderId || localStorage.getItem('lastOrderId');
+              const statusColor = (s) => {
+                if (s === 'SIAP' || s === 'OTW') return {bg: '#d1fae5', color: '#059669'};
+                if (s === 'SELESAI') return {bg: '#f1f5f9', color: '#64748b'};
+                if (s === 'DIBATALKAN') return {bg: '#fee2e2', color: '#dc2626'};
+                return {bg: '#fef3c7', color: '#d97706'};
+              };
+              const statusLabel = (s) => {
+                if (s === 'PESANAN BARU') return '⏳ Menunggu Konfirmasi';
+                if (s === 'MENUNGGU ONGKIR') return '⏳ Menunggu Ongkir';
+                if (s === 'MENUNGGU PEMBAYARAN') return '💳 Menunggu Pembayaran';
+                if (s === 'SEDANG DIPROSES' || s === 'Sedang Diproses') return '🍳 Sedang Diproses';
+                if (s === 'SIAP') return '✅ Pesanan Siap';
+                if (s === 'OTW') return '🚀 Sedang Diantar';
+                if (s === 'SELESAI') return '🎉 Selesai';
+                if (s === 'DIBATALKAN') return '❌ Dibatalkan';
+                return s;
+              };
 
-                {trackOrderResult ? (
-                  <div style={{background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'left', animation: 'fadeInUp 0.3s ease', marginTop: '20px'}}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center'}}>
-                      <span style={{color: 'var(--text-muted)', fontSize: '1rem'}}>Status Pesanan:</span>
-                      <span style={{fontWeight: 'bold', padding: '6px 14px', borderRadius: '20px', fontSize: '0.95rem', background: trackOrderResult.status_pesanan === 'SIAP' ? '#d1fae5' : (trackOrderResult.status_pesanan === 'SELESAI' ? '#f1f5f9' : '#fef3c7'), color: trackOrderResult.status_pesanan === 'SIAP' ? '#059669' : (trackOrderResult.status_pesanan === 'SELESAI' ? '#64748b' : '#d97706')}}>
-                        {trackOrderResult.status_pesanan === 'PESANAN BARU' ? 'Menunggu Konfirmasi' : 
-                         trackOrderResult.status_pesanan === 'SEDANG DIPROSES' || trackOrderResult.status_pesanan === 'Sedang Diproses' ? 'Sedang Diproses (Dimasak)' :
-                         trackOrderResult.status_pesanan === 'SIAP' ? 'Siap (Menunggu Kurir / Diambil)' :
-                         trackOrderResult.status_pesanan === 'OTW' ? 'Sedang Diantar (Kurir OTW)' :
-                         trackOrderResult.status_pesanan === 'SELESAI' ? 'Pesanan Selesai / Diterima' :
-                         trackOrderResult.status_pesanan}
-                      </span>
+              // Auto-fetch on tab open
+              if (!trackOrderResult && savedOrderId && !isTracking) {
+                setTimeout(async () => {
+                  setIsTracking(true);
+                  setTrackOrderId(savedOrderId);
+                  const res = await checkOrderStatus(savedOrderId);
+                  setIsTracking(false);
+                  if (res.success && res.data) setTrackOrderResult(res.data);
+                }, 0);
+              }
+
+              return (
+                <div style={{ gridColumn: '1 / -1', minHeight: '300px' }}>
+                  {isTracking && !trackOrderResult && (
+                    <div style={{textAlign: 'center', padding: '60px 20px', color: '#94a3b8'}}>
+                      <div className="spinner" style={{border: '4px solid rgba(16, 185, 129, 0.3)', borderTop: '4px solid #10B981', borderRadius: '50%', width: '36px', height: '36px', animation: 'spin 1s linear infinite', margin: '0 auto 16px'}}></div>
+                      Memuat pesanan...
                     </div>
-                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '12px'}}>
-                      <span style={{color: 'var(--text-muted)'}}>Metode Bayar:</span>
-                      <span style={{fontWeight: 'bold'}}>{trackOrderResult.metode_bayar}</span>
+                  )}
+
+                  {!isTracking && !trackOrderResult && !savedOrderId && (
+                    <div style={{textAlign: 'center', padding: '60px 20px', color: '#94a3b8', background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}>
+                      <span style={{fontSize: '3.5rem', display: 'block', marginBottom: '12px'}}>📋</span>
+                      <p style={{fontSize: '1.1rem', fontWeight: '600', color: '#475569', marginBottom: '8px'}}>Belum Ada Pesanan</p>
+                      <p style={{fontSize: '0.9rem'}}>Silakan pesan menu terlebih dahulu, status pesanan Anda akan muncul di sini.</p>
                     </div>
-                    {trackOrderResult.alamat_pengiriman && (
-                       <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '12px', flexDirection: 'column'}}>
-                         <span style={{color: 'var(--text-muted)', marginBottom: '4px'}}>Alamat Pengiriman:</span>
-                         <span style={{fontWeight: '500', fontSize: '0.9rem', color: '#475569'}}>{trackOrderResult.alamat_pengiriman}</span>
-                       </div>
-                    )}
-                    <div style={{display: 'flex', justifyContent: 'space-between', borderTop: '2px dashed #cbd5e1', paddingTop: '16px', marginTop: '16px'}}>
-                      <span style={{color: 'var(--text-muted)', fontSize: '1.1rem'}}>Total Tagihan:</span>
-                      <span style={{fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.3rem'}}>Rp {trackOrderResult.total_bayar.toLocaleString('id-ID')}</span>
+                  )}
+
+                  {!isTracking && !trackOrderResult && savedOrderId && (
+                    <div style={{textAlign: 'center', padding: '60px 20px', color: '#94a3b8', background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}>
+                      <span style={{fontSize: '3.5rem', display: 'block', marginBottom: '12px'}}>😕</span>
+                      <p style={{fontSize: '1.1rem', fontWeight: '600', color: '#475569', marginBottom: '8px'}}>Pesanan Tidak Ditemukan</p>
+                      <p style={{fontSize: '0.9rem'}}>Order ID: {savedOrderId}</p>
+                      <button onClick={async () => { setIsTracking(true); const res = await checkOrderStatus(savedOrderId); setIsTracking(false); if (res.success && res.data) setTrackOrderResult(res.data); }} style={{marginTop: '16px', background: 'var(--primary)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold'}}>Coba Lagi</button>
                     </div>
-                  </div>
-                ) : (
-                  <div style={{textAlign: 'center', padding: '40px', color: '#94a3b8'}}>
-                    <span style={{fontSize: '3rem', display: 'block', marginBottom: '10px'}}>📦</span>
-                    Masukkan Order ID untuk melihat status pesanan Anda.
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+
+                  {trackOrderResult && (
+                    <div style={{background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', overflow: 'hidden', animation: 'fadeInUp 0.3s ease'}}>
+                      {/* Header Card */}
+                      <div style={{background: `linear-gradient(135deg, ${statusColor(trackOrderResult.status_pesanan).color}22, ${statusColor(trackOrderResult.status_pesanan).color}11)`, padding: '20px', borderBottom: '1px solid #e2e8f0'}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'}}>
+                          <span style={{fontSize: '0.85rem', color: '#64748b'}}>Order #{trackOrderResult.order_id}</span>
+                          <button onClick={async () => { setIsTracking(true); const res = await checkOrderStatus(trackOrderResult.order_id); setIsTracking(false); if (res.success && res.data) setTrackOrderResult(res.data); }} style={{background: 'none', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 10px', fontSize: '0.8rem', cursor: 'pointer', color: '#64748b'}}>🔄 Refresh</button>
+                        </div>
+                        <div style={{display: 'inline-block', background: statusColor(trackOrderResult.status_pesanan).bg, color: statusColor(trackOrderResult.status_pesanan).color, padding: '8px 16px', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem'}}>
+                          {statusLabel(trackOrderResult.status_pesanan)}
+                        </div>
+                      </div>
+
+                      {/* Items List */}
+                      <div style={{padding: '16px 20px'}}>
+                        <h4 style={{marginBottom: '12px', fontSize: '0.95rem', color: '#475569'}}>Rincian Pesanan</h4>
+                        {trackOrderResult.items && trackOrderResult.items.length > 0 ? (
+                          trackOrderResult.items.map((item, idx) => (
+                            <div key={idx} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: idx < trackOrderResult.items.length - 1 ? '1px solid #f1f5f9' : 'none'}}>
+                              <div style={{flex: 1}}>
+                                <div style={{fontWeight: '600', fontSize: '0.9rem'}}>{item.nama_menu}</div>
+                                {item.catatan && <div style={{fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic', marginTop: '2px'}}>{item.catatan}</div>}
+                                <div style={{fontSize: '0.8rem', color: '#64748b', marginTop: '2px'}}>{item.qty}x @ Rp {(item.harga_satuan || 0).toLocaleString('id-ID')}</div>
+                              </div>
+                              <div style={{fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap'}}>Rp {(item.subtotal || 0).toLocaleString('id-ID')}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{color: '#94a3b8', fontSize: '0.9rem', padding: '8px 0'}}>Detail item tidak tersedia</div>
+                        )}
+                      </div>
+
+                      {/* Footer Summary */}
+                      <div style={{padding: '16px 20px', background: '#f8fafc', borderTop: '2px dashed #e2e8f0'}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.9rem'}}>
+                          <span style={{color: '#64748b'}}>Subtotal</span>
+                          <span>Rp {(trackOrderResult.subtotal || 0).toLocaleString('id-ID')}</span>
+                        </div>
+                        {trackOrderResult.ongkir > 0 && (
+                          <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.9rem'}}>
+                            <span style={{color: '#64748b'}}>Ongkos Kirim</span>
+                            <span>Rp {trackOrderResult.ongkir.toLocaleString('id-ID')}</span>
+                          </div>
+                        )}
+                        <div style={{display: 'flex', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid #e2e8f0', fontWeight: 'bold', fontSize: '1.15rem'}}>
+                          <span>Total</span>
+                          <span style={{color: 'var(--primary)'}}>Rp {(trackOrderResult.total_bayar || 0).toLocaleString('id-ID')}</span>
+                        </div>
+                      </div>
+
+                      {/* Info Footer */}
+                      <div style={{padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                        <div>💳 {trackOrderResult.metode_bayar}</div>
+                        {trackOrderResult.alamat_pengiriman && <div>📍 {trackOrderResult.alamat_pengiriman}</div>}
+                        {trackOrderResult.nomor_meja && <div>🪑 Meja {trackOrderResult.nomor_meja}</div>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
 
             {activeTab === 'merch' && (
               <div style={{ gridColumn: '1 / -1', background: '#ffe4e6', color: '#9f1239', padding: '12px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', fontSize: '0.9rem' }}>
