@@ -383,8 +383,11 @@ function App() {
       <div style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc'}}>
          <h2 style={{color: '#f59e0b', marginBottom: '10px'}}>Sesi Anda Telah Berakhir ⏱️</h2>
          <p style={{marginBottom: '20px'}}>Waktu pemesanan untuk meja ini (1 jam) telah habis demi keamanan transaksi.</p>
-         <p style={{marginBottom: '30px', fontWeight: 'bold'}}>Jika Anda masih berada di restoran, silakan tutup tab ini dan Scan Ulang QR Code secara fisik di atas meja.</p>
-         <button onClick={() => window.location.href = window.location.pathname} style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.1rem'}}>🛵 Atau Beralih ke Pesan Antar</button>
+         <p style={{marginBottom: '30px', fontWeight: 'bold'}}>Jika Anda masih berada di restoran, silakan Scan Ulang QR Code di meja atau tekan tombol di bawah ini.</p>
+         <div style={{display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '300px'}}>
+           <button onClick={() => window.location.reload()} style={{background: '#10B981', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem'}}>📷 Mulai Sesi Baru</button>
+           <button onClick={() => window.location.href = window.location.pathname} style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem'}}>🛵 Beralih ke Pesan Antar</button>
+         </div>
       </div>
     );
   }
