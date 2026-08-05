@@ -282,7 +282,11 @@ function App() {
 
   const submitOrder = async () => {
     if (!customerName) return alert("Mohon masukkan nama Anda!");
-    if (orderType === 'Delivery' && !address) return alert("Mohon masukkan alamat pengiriman!");
+    if (!phone) return alert("Mohon masukkan Nomor HP / WA Anda!");
+    if (orderType === 'Delivery') {
+      if (!address) return alert("Mohon masukkan alamat pengiriman lengkap!");
+      if (!location) return alert("Mohon klik tombol '📍 Ambil Koordinat GPS (ShareLoc)' agar kurir bisa mengantar pesanan Anda!");
+    }
     if (cartTotalPoin > 0) {
       if (points === null) return alert("Silakan Cek Poin terlebih dahulu sebelum menukar hadiah!");
       if (points < cartTotalPoin) return alert(`Poin tidak cukup! Poin Anda: ${points}, Butuh: ${cartTotalPoin}`);
@@ -312,9 +316,9 @@ function App() {
       no_hp_pelanggan: phone,
       jenis_pesanan: orderType,
       nomor_meja: orderType === 'Dine-In' ? tableNumber : '',
-      alamat_pengiriman: address,
-      koordinat_lokasi: location,
-      metode_bayar: paymentMethod,
+      alamat: orderType === 'Delivery' ? address : '',
+      koordinat: location,
+      metode_pembayaran: (orderType === 'Delivery' && (paymentMethod === 'Tunai' || paymentMethod === 'QRIS')) ? 'COD' : ((orderType === 'Dine-In' && (paymentMethod === 'COD' || paymentMethod === 'Transfer')) ? 'Tunai' : paymentMethod),
       items: items,
       subtotal: cartTotalRupiah,
       pajak_ppn: 0,
@@ -661,8 +665,17 @@ function App() {
 
            <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Metode Pembayaran</label>
            <select value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}}>
-             <option value="Tunai">Tunai</option>
-             <option value="QRIS">QRIS</option>
+             {orderType === 'Dine-In' ? (
+               <>
+                 <option value="Tunai">Tunai</option>
+                 <option value="QRIS">QRIS</option>
+               </>
+             ) : (
+               <>
+                 <option value="COD">COD (Bayar di Tempat)</option>
+                 <option value="Transfer">Transfer Bank</option>
+               </>
+             )}
            </select>
         </div>
 
