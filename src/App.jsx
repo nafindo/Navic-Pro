@@ -327,7 +327,7 @@ function App() {
     }
 
     setLoading(true);
-    const newOrderId = "SELF-" + Date.now().toString().slice(-6);
+    const newOrderId = (orderType === 'Dine-In' ? "SELF-" : "WEB-") + Date.now().toString().slice(-6);
 
     // Convert cart items to matching format
     const items = cart.map(c => {
