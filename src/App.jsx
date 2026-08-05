@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder } from './api'
+import { fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder, checkOrderStatus } from './api'
 import './index.css'
 
 const CAFE_LAT = -6.870245;
@@ -8,12 +8,12 @@ const MAX_RADIUS = 50; // dalam meter
 
 function getDistance(lat1, lon1, lat2, lon2) {
   const R = 6371e3; // radius bumi dalam meter
-  const p1 = lat1 * Math.PI/180;
-  const p2 = lat2 * Math.PI/180;
-  const dp = (lat2-lat1) * Math.PI/180;
-  const dl = (lon2-lon1) * Math.PI/180;
-  const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const p1 = lat1 * Math.PI / 180;
+  const p2 = lat2 * Math.PI / 180;
+  const dp = (lat2 - lat1) * Math.PI / 180;
+  const dl = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
@@ -23,8 +23,8 @@ function App() {
   const [menuItems, setMenuItems] = useState([]);
   const [merchItems, setMerchItems] = useState([]);
   const [cart, setCart] = useState([]);
-  const [phone, setPhone] = useState('');
-  const [customerName, setCustomerName] = useState('');
+  const [phone, setPhone] = useState(localStorage.getItem('savedPhone') || '');
+  const [customerName, setCustomerName] = useState(localStorage.getItem('savedCustomerName') || '');
   const [points, setPoints] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -44,6 +44,13 @@ function App() {
   const [paymentMethod, setPaymentMethod] = useState('Tunai'); // Tunai or Transfer
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderId, setOrderId] = useState('');
+  const [pollingOngkir, setPollingOngkir] = useState(false);
+  const [finalOrderData, setFinalOrderData] = useState(null);
+
+  // Check Order State
+  const [trackOrderId, setTrackOrderId] = useState(localStorage.getItem('lastOrderId') || '');
+  const [trackOrderResult, setTrackOrderResult] = useState(null);
+  const [isTracking, setIsTracking] = useState(false);
 
   // Security States
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -80,20 +87,41 @@ function App() {
               const dist = getDistance(CAFE_LAT, CAFE_LNG, position.coords.latitude, position.coords.longitude);
               if (dist > MAX_RADIUS) setGpsBlocked(true);
               setGpsLoading(false);
-            }, 
+            },
             (error) => {
               setGpsBlocked(true); // Jika ditolak atau error, blokir
               setGpsLoading(false);
-            }, 
+            },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
           );
         } else {
-           setGpsBlocked(true);
+          setGpsBlocked(true);
         }
       }
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    let interval;
+    if (pollingOngkir && orderId) {
+      interval = setInterval(async () => {
+        try {
+          const res = await checkOrderStatus(orderId);
+          if (res.success && res.data) {
+            const status = res.data.status_pesanan;
+            if (status !== 'MENUNGGU ONGKIR' && status !== 'PESANAN BARU') {
+              setFinalOrderData(res.data);
+              setPollingOngkir(false);
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [pollingOngkir, orderId]);
 
   const loadData = async () => {
     setLoading(true);
@@ -101,7 +129,7 @@ function App() {
     try {
       const res = await fetchMasterData();
       const merchRes = await fetchMerchandise();
-      
+
       if (res.success && res.data && res.data.produk) {
         const allProducts = res.data.produk.filter(p => p.is_tersedia);
         const isMerch = (p) => p.kategori && (p.kategori.toLowerCase() === 'merchandise' || p.kategori.toLowerCase() === 'hadiah' || p.kategori.toLowerCase().includes('tukar poin'));
@@ -131,10 +159,14 @@ function App() {
 
   const handleCheckPoints = async () => {
     if (phone.length < 9) return;
+    localStorage.setItem('savedPhone', phone);
     const res = await checkLoyaltyPoints(phone);
     if (res.success && res.data) {
       setPoints(res.data.total_poin);
-      if (res.data.nama) setCustomerName(res.data.nama);
+      if (res.data.nama) {
+        setCustomerName(res.data.nama);
+        localStorage.setItem('savedCustomerName', res.data.nama);
+      }
     } else {
       setPoints(0);
     }
@@ -142,7 +174,7 @@ function App() {
 
   const handleProductClick = (item) => {
     if (!item.is_tersedia) return;
-    
+
     // Check if item has variants
     if (item.varian) {
       let parsedVariants = null;
@@ -152,7 +184,7 @@ function App() {
         console.error("Gagal parse varian:", e);
         alert("Gagal membaca data varian: " + e.message + "\n\nVarian String: " + item.varian);
       }
-      
+
       if (parsedVariants && Array.isArray(parsedVariants) && parsedVariants.length > 0) {
         // Initialize default selections (e.g. first radio option)
         const initialSelections = {};
@@ -163,7 +195,7 @@ function App() {
             initialSelections[group.groupName] = {};
           }
         });
-        
+
         setSelectedProductForVariant({ ...item, parsedVariants });
         setVariantSelections(initialSelections);
         setVariantNotes('');
@@ -171,25 +203,25 @@ function App() {
         return;
       }
     }
-    
+
     // If no variants, add directly
     addToCart(item);
   };
 
   const addToCart = (item, customVarianText = '', customPrice = null) => {
     // Merging logic: same product ID, same variants, same custom price
-    const existing = cart.find(c => 
-      c.id_produk === item.id_produk && 
-      (c.varian_text || '') === customVarianText && 
+    const existing = cart.find(c =>
+      c.id_produk === item.id_produk &&
+      (c.varian_text || '') === customVarianText &&
       (c.custom_price === customPrice)
     );
-    
+
     if (existing) {
       setCart(cart.map(c => c.cartItemId === existing.cartItemId ? { ...c, qty: c.qty + (item.qty || 1) } : c));
     } else {
-      setCart([...cart, { 
-        ...item, 
-        cartItemId: Date.now() + Math.random().toString(36).substr(2, 9), 
+      setCart([...cart, {
+        ...item,
+        cartItemId: Date.now() + Math.random().toString(36).substr(2, 9),
         qty: item.qty || 1,
         varian_text: customVarianText,
         custom_price: customPrice !== null ? customPrice : item.harga
@@ -200,7 +232,7 @@ function App() {
   const handleVariantSubmit = () => {
     let extraPrice = 0;
     const variantParts = [];
-    
+
     selectedProductForVariant.parsedVariants.forEach(group => {
       if (!group.isMultiple) {
         const sel = variantSelections[group.groupName];
@@ -209,9 +241,9 @@ function App() {
           if (opt) {
             extraPrice += opt.price || 0;
             if (opt.price > 0) {
-               variantParts.push(`${sel} (+Rp ${opt.price.toLocaleString('id-ID')})`);
+              variantParts.push(`${sel} (+Rp ${opt.price.toLocaleString('id-ID')})`);
             } else {
-               variantParts.push(`${sel}`);
+              variantParts.push(`${sel}`);
             }
           }
         }
@@ -235,13 +267,13 @@ function App() {
 
     const customPrice = parseInt(selectedProductForVariant.harga) + extraPrice;
     const varianText = variantParts.join(', ');
-    
+
     const itemToAdd = {
       ...selectedProductForVariant,
       qty: variantQty,
       catatan: variantNotes
     };
-    
+
     addToCart(itemToAdd, varianText, customPrice);
     setSelectedProductForVariant(null);
   };
@@ -260,7 +292,7 @@ function App() {
     const isMerch = c.kategori && (c.kategori.toLowerCase() === 'merchandise' || c.kategori.toLowerCase() === 'hadiah' || c.kategori.toLowerCase().includes('tukar poin'));
     return !isMerch;
   }).reduce((sum, item) => sum + ((item.custom_price !== undefined ? item.custom_price : item.harga || 0) * item.qty), 0);
-  
+
   const cartTotalPoin = cart.filter(c => {
     const isMerch = c.kategori && (c.kategori.toLowerCase() === 'merchandise' || c.kategori.toLowerCase() === 'hadiah' || c.kategori.toLowerCase().includes('tukar poin'));
     return isMerch;
@@ -291,15 +323,15 @@ function App() {
       if (points === null) return alert("Silakan Cek Poin terlebih dahulu sebelum menukar hadiah!");
       if (points < cartTotalPoin) return alert(`Poin tidak cukup! Poin Anda: ${points}, Butuh: ${cartTotalPoin}`);
     }
-    
+
     setLoading(true);
     const newOrderId = "SELF-" + Date.now().toString().slice(-6);
-    
+
     // Convert cart items to matching format
     const items = cart.map(c => {
       const price = c.custom_price !== undefined ? c.custom_price : c.harga;
       const combinedNotes = c.varian_text ? (c.catatan ? c.varian_text + " | " + c.catatan : c.varian_text) : (c.catatan || "");
-      
+
       return {
         id_produk: c.id_produk,
         nama_menu: c.nama_menu,
@@ -318,7 +350,7 @@ function App() {
       nomor_meja: orderType === 'Dine-In' ? tableNumber : '',
       alamat: orderType === 'Delivery' ? address : '',
       koordinat: location,
-      metode_pembayaran: (orderType === 'Delivery' && (paymentMethod === 'Tunai' || paymentMethod === 'QRIS')) ? 'COD' : ((orderType === 'Dine-In' && (paymentMethod === 'COD' || paymentMethod === 'Transfer')) ? 'Tunai' : paymentMethod),
+      metode_bayar: (orderType === 'Delivery' && (paymentMethod === 'Tunai' || paymentMethod === 'QRIS')) ? 'COD' : ((orderType === 'Dine-In' && (paymentMethod === 'COD' || paymentMethod === 'Transfer')) ? 'Tunai' : paymentMethod),
       items: items,
       subtotal: cartTotalRupiah,
       pajak_ppn: 0,
@@ -327,16 +359,21 @@ function App() {
       poin_didapat: Math.floor(cartTotalRupiah / 10000), // contoh: 1 poin per 10rb
       poin_ditukar: cartTotalPoin
     };
-    
+
     // Override metode bayar jika hanya tukar poin
     if (cartTotalRupiah === 0 && cartTotalPoin > 0) {
-       payload.metode_bayar = 'Tukar Poin';
+      payload.metode_bayar = 'Tukar Poin';
     }
 
     const res = await createOrder(payload);
     if (res.success) {
       setOrderId(newOrderId);
+      localStorage.setItem('lastOrderId', newOrderId);
       setOrderSuccess(true);
+      if (orderType === 'Delivery') {
+        setPollingOngkir(true);
+        setFinalOrderData(null);
+      }
       setCart([]);
     } else {
       alert("Gagal memproses pesanan: " + res.message);
@@ -345,53 +382,89 @@ function App() {
   };
 
   if (orderSuccess) {
+    if (orderType === 'Delivery' && !finalOrderData) {
+      return (
+        <div className="app-container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px', textAlign: 'center' }}>
+          <div className="glass-card" style={{ padding: '40px', width: '100%' }}>
+            <div className="spinner" style={{ marginBottom: '20px', border: '4px solid rgba(16, 185, 129, 0.3)', borderTop: '4px solid #10B981', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
+            <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+            <h2>Menunggu Konfirmasi...</h2>
+            <p style={{ margin: '16px 0' }}>Order ID: <b>{orderId}</b></p>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>
+              Mohon tunggu sejenak. Kasir sedang mengecek lokasi Anda untuk menghitung Ongkos Kirim. Halaman ini akan otomatis menampilkan Nota Anda.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="app-container" style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px', textAlign: 'center'}}>
-        <div className="glass-card" style={{padding: '40px', width: '100%'}}>
-          <h2 style={{color: '#10B981', fontSize: '3rem', marginBottom: '16px'}}>✓</h2>
-          <h2>Pesanan Berhasil Dibuat!</h2>
-          <p style={{margin: '16px 0'}}>Order ID: <b>{orderId}</b></p>
+      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px', textAlign: 'center' }}>
+        <div className="glass-card" style={{ padding: '40px', width: '100%' }}>
+          <h2 style={{ color: '#10B981', fontSize: '3rem', marginBottom: '16px' }}>✓</h2>
+          <h2>Pesanan Berhasil Disetujui!</h2>
+          <p style={{ margin: '16px 0' }}>Order ID: <b>{orderId}</b></p>
+
+          {finalOrderData && (
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'left' }}>
+              <h4 style={{ marginBottom: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>Rincian Biaya (Nota)</h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem' }}>
+                <span>Subtotal Pesanan:</span>
+                <span>Rp {finalOrderData.subtotal.toLocaleString('id-ID')}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem' }}>
+                <span>Ongkos Kirim:</span>
+                <span>Rp {(finalOrderData.ongkir || 0).toLocaleString('id-ID')}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #cbd5e1', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                <span>Total Tagihan:</span>
+                <span style={{ color: '#10B981' }}>Rp {(finalOrderData.subtotal + (finalOrderData.ongkir || 0)).toLocaleString('id-ID')}</span>
+              </div>
+            </div>
+          )}
+
           <p style={{color: 'var(--text-muted)', marginBottom: '24px'}}>
             {orderType === 'Delivery' 
-              ? "Pesanan Anda sedang dikonfirmasi. Mohon tunggu informasi ongkir dari Kasir." 
+              ? "Pesanan Anda sedang disiapkan dan akan segera diantar oleh kurir." 
               : "Silakan tunggu di meja Anda, pesanan akan segera dihidangkan."}
           </p>
-          <button className="add-btn" style={{width: '100%'}} onClick={() => {setOrderSuccess(false); setShowCheckout(false);}}>Kembali ke Menu</button>
+          <button className="add-btn" style={{width: '100%', marginBottom: '12px'}} onClick={() => {setOrderSuccess(false); setShowCheckout(false); setFinalOrderData(null); setActiveTab('orders'); setTrackOrderId(orderId);}}>Pantau Pesanan</button>
+          <button className="add-btn" style={{width: '100%', background: '#e2e8f0', color: '#475569'}} onClick={() => {setOrderSuccess(false); setShowCheckout(false); setFinalOrderData(null);}}>Kembali ke Menu</button>
         </div>
       </div>
     );
   }
   if (gpsLoading) {
     return (
-      <div style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc'}}>
-         <h2 style={{color: 'var(--primary)', marginBottom: '10px'}}>📍 Memeriksa Lokasi...</h2>
-         <p>Mohon tunggu sebentar, kami sedang memastikan Anda berada di dalam area Cafe.</p>
-         <p style={{fontSize: '0.8rem', color: '#64748b', marginTop: '10px'}}>(Pastikan Anda mengizinkan akses GPS/Lokasi saat diminta browser)</p>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc' }}>
+        <h2 style={{ color: 'var(--primary)', marginBottom: '10px' }}>📍 Memeriksa Lokasi...</h2>
+        <p>Mohon tunggu sebentar, kami sedang memastikan Anda berada di dalam area Cafe.</p>
+        <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '10px' }}>(Pastikan Anda mengizinkan akses GPS/Lokasi saat diminta browser)</p>
       </div>
     );
   }
 
   if (gpsBlocked) {
     return (
-      <div style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc'}}>
-         <h2 style={{color: '#ef4444', marginBottom: '10px'}}>Anda Berada di Luar Area Cafe 🛑</h2>
-         <p style={{marginBottom: '20px'}}>Sistem mendeteksi Anda tidak berada dalam radius cafe, atau Anda menolak memberikan izin lokasi.</p>
-         <p style={{marginBottom: '30px', fontWeight: 'bold'}}>Jika ingin pesan antar ke rumah, silakan beralih ke mode Delivery.</p>
-         <button onClick={() => window.location.href = window.location.pathname} style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.1rem'}}>🛵 Beralih ke Layanan Antar</button>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc' }}>
+        <h2 style={{ color: '#ef4444', marginBottom: '10px' }}>Anda Berada di Luar Area Cafe 🛑</h2>
+        <p style={{ marginBottom: '20px' }}>Sistem mendeteksi Anda tidak berada dalam radius cafe, atau Anda menolak memberikan izin lokasi.</p>
+        <p style={{ marginBottom: '30px', fontWeight: 'bold' }}>Jika ingin pesan antar ke rumah, silakan beralih ke mode Delivery.</p>
+        <button onClick={() => window.location.href = window.location.pathname} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.1rem' }}>🛵 Beralih ke Layanan Antar</button>
       </div>
     );
   }
 
   if (sessionExpired) {
     return (
-      <div style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc'}}>
-         <h2 style={{color: '#f59e0b', marginBottom: '10px'}}>Sesi Anda Telah Berakhir ⏱️</h2>
-         <p style={{marginBottom: '20px'}}>Waktu pemesanan untuk meja ini (1 jam) telah habis demi keamanan transaksi.</p>
-         <p style={{marginBottom: '30px', fontWeight: 'bold'}}>Jika Anda masih berada di restoran, silakan Scan Ulang QR Code di meja atau tekan tombol di bawah ini.</p>
-         <div style={{display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '300px'}}>
-           <button onClick={() => window.location.reload()} style={{background: '#10B981', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem'}}>📷 Mulai Sesi Baru</button>
-           <button onClick={() => window.location.href = window.location.pathname} style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem'}}>🛵 Beralih ke Pesan Antar</button>
-         </div>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc' }}>
+        <h2 style={{ color: '#f59e0b', marginBottom: '10px' }}>Sesi Anda Telah Berakhir ⏱️</h2>
+        <p style={{ marginBottom: '20px' }}>Waktu pemesanan untuk meja ini (1 jam) telah habis demi keamanan transaksi.</p>
+        <p style={{ marginBottom: '30px', fontWeight: 'bold' }}>Jika Anda masih berada di restoran, silakan Scan Ulang QR Code di meja atau tekan tombol di bawah ini.</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '300px' }}>
+          <button onClick={() => window.location.reload()} style={{ background: '#10B981', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>📷 Mulai Sesi Baru</button>
+          <button onClick={() => window.location.href = window.location.pathname} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>🛵 Beralih ke Pesan Antar</button>
+        </div>
       </div>
     );
   }
@@ -402,7 +475,7 @@ function App() {
       <header className="glass-header">
         <div className="header-content">
           <div className="logo-section">
-            <img src="/Navic-Pro/crunchy_logo.png" alt="Navic Pro" style={{height: '40px'}} onError={(e)=>{e.target.style.display='none'}} />
+            <img src="/Navic-Pro/crunchy_logo.png" alt="Navic Pro" style={{ height: '40px' }} onError={(e) => { e.target.style.display = 'none' }} />
             <div>
               <h1>Navic Pro</h1>
               <div className="slogan">Aplikasi Pintar Restoran Modern</div>
@@ -417,7 +490,7 @@ function App() {
 
       {/* Main Content */}
       <main className="main-content" style={{ display: showCheckout ? 'none' : 'block' }}>
-        <div className="hero-banner" style={{position: 'relative', overflow: 'hidden'}}>
+        <div className="hero-banner" style={{ position: 'relative', overflow: 'hidden' }}>
           {orderType === 'Dine-In' && tableNumber && (
             <div style={{
               position: 'absolute',
@@ -437,147 +510,222 @@ function App() {
             </div>
           )}
 
-          <div style={{position: 'relative', zIndex: 1}}>
+          <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-              <img src="/Navic-Pro/navic_pro_logo.png" alt="Crunchy Logo" style={{ height: '60px', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }} onError={(e) => e.target.style.display='none'} />
-              <h2 style={{fontSize: '2.5rem', fontWeight: '900', color: 'white', margin: 0, letterSpacing: '-1px'}}>Crunchy.co</h2>
+              <img src="/Navic-Pro/navic_pro_logo.png" alt="Crunchy Logo" style={{ height: '60px', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }} onError={(e) => e.target.style.display = 'none'} />
+              <h2 style={{ fontSize: '2.5rem', fontWeight: '900', color: 'white', margin: 0, letterSpacing: '-1px' }}>Crunchy.co</h2>
             </div>
-            <p style={{marginTop: '4px', fontWeight: '500'}}>Hai {customerName ? customerName : 'Pelanggan'}, silakan pilih menu favorit Anda.</p>
-            
-            <div style={{marginTop: '15px', display: 'flex', gap: '10px'}}>
-               <input 
-                 type="tel" 
-                 placeholder="Masukkan No HP / WA" 
-                 value={phone} 
-                 onChange={(e) => setPhone(e.target.value)}
-                 style={{padding: '8px', borderRadius: '8px', border: '1px solid #ccc', flex: 1}}
-               />
-               <button onClick={handleCheckPoints} style={{background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 12px'}}>Cek Poin</button>
+            <p style={{ marginTop: '4px', fontWeight: '500' }}>Hai {customerName ? customerName : 'Pelanggan'}, silakan pilih menu favorit Anda.</p>
+
+            <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+              <input
+                type="tel"
+                placeholder="Masukkan No HP / WA"
+                value={phone}
+                onChange={(e) => {setPhone(e.target.value); localStorage.setItem('savedPhone', e.target.value);}}
+                style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ccc', flex: 1 }}
+              />
+              <button onClick={handleCheckPoints} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 12px' }}>Cek Poin</button>
             </div>
           </div>
         </div>
 
         {/* Tab Navigation */}
         <div className="tab-navigation">
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'menu' ? 'active' : ''}`}
             onClick={() => setActiveTab('menu')}
           >
             Makanan & Minuman
           </button>
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'merch' ? 'active' : ''}`}
             onClick={() => setActiveTab('merch')}
           >
-            Tukar Poin (Hadiah)
+            Tukar Poin
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => setActiveTab('orders')}
+          >
+            Pesanan Anda
           </button>
         </div>
 
         {/* Products Grid */}
         {loading ? (
-           <div style={{textAlign: 'center', padding: '40px'}}>Memuat Data...</div>
+          <div style={{ textAlign: 'center', padding: '40px' }}>Memuat Data...</div>
         ) : errorMsg ? (
-           <div style={{textAlign: 'center', padding: '40px', color: 'red'}}>
-              {errorMsg}
-              <br/><br/>
-              <button onClick={loadData} style={{padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: '#fff'}}>Coba Lagi</button>
-           </div>
+          <div style={{ textAlign: 'center', padding: '40px', color: 'red' }}>
+            {errorMsg}
+            <br /><br />
+            <button onClick={loadData} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: '#fff' }}>Coba Lagi</button>
+          </div>
         ) : (
           <div className="products-grid">
             {activeTab === 'menu' && (() => {
               const uniqueCategories = [...new Set(menuItems.map(item => item.kategori).filter(Boolean))];
               if (uniqueCategories.length === 0) return null;
-              
+
               const categoryCards = [
                 ...uniqueCategories.map(cat => {
-                   const firstItem = menuItems.find(m => m.kategori === cat && m.image_url);
-                   let catImage = 'https://cdn-icons-png.flaticon.com/512/3170/3170733.png'; // fallback image
-                   if (firstItem && firstItem.image_url) {
-                      let fileId = null;
-                      if (firstItem.image_url.includes('drive.google.com/file/d/')) {
-                        const match = firstItem.image_url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-                        if (match) fileId = match[1];
-                      } else if (firstItem.image_url.includes('drive.google.com/uc')) {
-                        const match = firstItem.image_url.match(/id=([a-zA-Z0-9_-]+)/);
-                        if (match) fileId = match[1];
-                      }
-                      if (fileId) {
-                         catImage = `https://lh3.googleusercontent.com/d/${fileId}`;
-                      }
-                   }
-                   return { name: cat, image: catImage };
+                  const firstItem = menuItems.find(m => m.kategori === cat && m.image_url);
+                  let catImage = 'https://cdn-icons-png.flaticon.com/512/3170/3170733.png'; // fallback image
+                  if (firstItem && firstItem.image_url) {
+                    let fileId = null;
+                    if (firstItem.image_url.includes('drive.google.com/file/d/')) {
+                      const match = firstItem.image_url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                      if (match) fileId = match[1];
+                    } else if (firstItem.image_url.includes('drive.google.com/uc')) {
+                      const match = firstItem.image_url.match(/id=([a-zA-Z0-9_-]+)/);
+                      if (match) fileId = match[1];
+                    }
+                    if (fileId) {
+                      catImage = `https://lh3.googleusercontent.com/d/${fileId}`;
+                    }
+                  }
+                  return { name: cat, image: catImage };
                 })
               ];
 
               return (
-                <div className="category-scroll-container" style={{gridColumn: '1 / -1'}}>
+                <div className="category-scroll-container" style={{ gridColumn: '1 / -1' }}>
                   {categoryCards.map(cat => (
-                    <div 
-                      key={cat.name} 
+                    <div
+                      key={cat.name}
                       className={`category-card ${selectedCategory === cat.name ? 'active' : ''}`}
                       onClick={() => setSelectedCategory(cat.name)}
                     >
-                      <img src={cat.image} alt={cat.name} className="category-img" onError={(e)=>{e.target.src='https://cdn-icons-png.flaticon.com/512/3170/3170733.png'}}/>
+                      <img src={cat.image} alt={cat.name} className="category-img" onError={(e) => { e.target.src = 'https://cdn-icons-png.flaticon.com/512/3170/3170733.png' }} />
                       <span className="category-name">{cat.name}</span>
                     </div>
                   ))}
                 </div>
               );
             })()}
-            {activeTab === 'merch' && (
-              <div style={{gridColumn: '1 / -1', background: '#ffe4e6', color: '#9f1239', padding: '12px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', fontSize: '0.9rem'}}>
-                 ℹ️ Penukaran poin (Redeem) hanya dapat dilakukan langsung di Kasir/Cafe.
+
+            {activeTab === 'orders' && (
+              <div style={{ gridColumn: '1 / -1', background: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', minHeight: '300px' }}>
+                <h3 style={{marginBottom: '16px', color: 'var(--primary)', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px'}}>Lacak Pesanan Anda</h3>
+                <div style={{display: 'flex', gap: '8px', marginBottom: '16px'}}>
+                  <input 
+                    type="text" 
+                    placeholder="Order ID (Contoh: SELF-1234)" 
+                    value={trackOrderId} 
+                    onChange={(e) => setTrackOrderId(e.target.value.toUpperCase())}
+                    style={{flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', textTransform: 'uppercase'}}
+                  />
+                  <button 
+                    onClick={async () => {
+                      if(!trackOrderId) return;
+                      setIsTracking(true);
+                      const res = await checkOrderStatus(trackOrderId);
+                      setIsTracking(false);
+                      if (res.success && res.data) {
+                        setTrackOrderResult(res.data);
+                      } else {
+                        alert("Pesanan tidak ditemukan atau sistem sedang sibuk.");
+                        setTrackOrderResult(null);
+                      }
+                    }}
+                    disabled={isTracking}
+                    style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold'}}
+                  >
+                    {isTracking ? 'Mencari...' : 'Lacak'}
+                  </button>
+                </div>
+
+                {trackOrderResult ? (
+                  <div style={{background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'left', animation: 'fadeInUp 0.3s ease', marginTop: '20px'}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center'}}>
+                      <span style={{color: 'var(--text-muted)', fontSize: '1rem'}}>Status Pesanan:</span>
+                      <span style={{fontWeight: 'bold', padding: '6px 14px', borderRadius: '20px', fontSize: '0.95rem', background: trackOrderResult.status_pesanan === 'SIAP' ? '#d1fae5' : (trackOrderResult.status_pesanan === 'SELESAI' ? '#f1f5f9' : '#fef3c7'), color: trackOrderResult.status_pesanan === 'SIAP' ? '#059669' : (trackOrderResult.status_pesanan === 'SELESAI' ? '#64748b' : '#d97706')}}>
+                        {trackOrderResult.status_pesanan === 'PESANAN BARU' ? 'Menunggu Konfirmasi' : 
+                         trackOrderResult.status_pesanan === 'SEDANG DIPROSES' || trackOrderResult.status_pesanan === 'Sedang Diproses' ? 'Sedang Diproses (Dimasak)' :
+                         trackOrderResult.status_pesanan === 'SIAP' ? 'Siap (Menunggu Kurir / Diambil)' :
+                         trackOrderResult.status_pesanan === 'OTW' ? 'Sedang Diantar (Kurir OTW)' :
+                         trackOrderResult.status_pesanan === 'SELESAI' ? 'Pesanan Selesai / Diterima' :
+                         trackOrderResult.status_pesanan}
+                      </span>
+                    </div>
+                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '12px'}}>
+                      <span style={{color: 'var(--text-muted)'}}>Metode Bayar:</span>
+                      <span style={{fontWeight: 'bold'}}>{trackOrderResult.metode_bayar}</span>
+                    </div>
+                    {trackOrderResult.alamat_pengiriman && (
+                       <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '12px', flexDirection: 'column'}}>
+                         <span style={{color: 'var(--text-muted)', marginBottom: '4px'}}>Alamat Pengiriman:</span>
+                         <span style={{fontWeight: '500', fontSize: '0.9rem', color: '#475569'}}>{trackOrderResult.alamat_pengiriman}</span>
+                       </div>
+                    )}
+                    <div style={{display: 'flex', justifyContent: 'space-between', borderTop: '2px dashed #cbd5e1', paddingTop: '16px', marginTop: '16px'}}>
+                      <span style={{color: 'var(--text-muted)', fontSize: '1.1rem'}}>Total Tagihan:</span>
+                      <span style={{fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.3rem'}}>Rp {trackOrderResult.total_bayar.toLocaleString('id-ID')}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{textAlign: 'center', padding: '40px', color: '#94a3b8'}}>
+                    <span style={{fontSize: '3rem', display: 'block', marginBottom: '10px'}}>📦</span>
+                    Masukkan Order ID untuk melihat status pesanan Anda.
+                  </div>
+                )}
               </div>
             )}
-            {(activeTab === 'menu' ? (selectedCategory === '' ? [...menuItems].sort((a, b) => (b.terjual_minggu_ini || 0) - (a.terjual_minggu_ini || 0)).slice(0, 20) : menuItems.filter(item => item.kategori === selectedCategory)) : merchItems).map((item) => {
-               const cartItems = cart.filter(c => c.id_produk === item.id_produk);
-               const totalQty = cartItems.reduce((sum, c) => sum + c.qty, 0);
-               
-               // Helper to convert Google Drive URL to direct image URL
-               let imageUrl = item.image_url;
-               if (imageUrl) {
-                 let fileId = null;
-                 if (imageUrl.includes('drive.google.com/file/d/')) {
-                   const match = imageUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-                   if (match) fileId = match[1];
-                 } else if (imageUrl.includes('drive.google.com/uc')) {
-                   const match = imageUrl.match(/id=([a-zA-Z0-9_-]+)/);
-                   if (match) fileId = match[1];
-                 }
-                 
-                 if (fileId) {
-                   // Gunakan lh3.googleusercontent.com yang dijamin bisa nampil di img tag browser modern
-                   imageUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
-                 }
-               }
 
-               return (
-                <div key={item.id_produk} className="product-card glass-card" onClick={() => handleProductClick(item)} style={{cursor: 'pointer'}}>
+            {activeTab === 'merch' && (
+              <div style={{ gridColumn: '1 / -1', background: '#ffe4e6', color: '#9f1239', padding: '12px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', fontSize: '0.9rem' }}>
+                ℹ️ Penukaran poin (Redeem) hanya dapat dilakukan langsung di Kasir/Cafe.
+              </div>
+            )}
+            {activeTab !== 'orders' && (activeTab === 'menu' ? (selectedCategory === '' ? [...menuItems].sort((a, b) => (b.terjual_minggu_ini || 0) - (a.terjual_minggu_ini || 0)).slice(0, 20) : menuItems.filter(item => item.kategori === selectedCategory)) : merchItems).map((item) => {
+              const cartItems = cart.filter(c => c.id_produk === item.id_produk);
+              const totalQty = cartItems.reduce((sum, c) => sum + c.qty, 0);
+
+              // Helper to convert Google Drive URL to direct image URL
+              let imageUrl = item.image_url;
+              if (imageUrl) {
+                let fileId = null;
+                if (imageUrl.includes('drive.google.com/file/d/')) {
+                  const match = imageUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                  if (match) fileId = match[1];
+                } else if (imageUrl.includes('drive.google.com/uc')) {
+                  const match = imageUrl.match(/id=([a-zA-Z0-9_-]+)/);
+                  if (match) fileId = match[1];
+                }
+
+                if (fileId) {
+                  // Gunakan lh3.googleusercontent.com yang dijamin bisa nampil di img tag browser modern
+                  imageUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+                }
+              }
+
+              return (
+                <div key={item.id_produk} className="product-card glass-card" onClick={() => handleProductClick(item)} style={{ cursor: 'pointer' }}>
                   {imageUrl ? (
-                    <img src={imageUrl} alt={item.nama_menu} style={{height: '120px', objectFit: 'cover', width: '100%'}} />
+                    <img src={imageUrl} alt={item.nama_menu} style={{ height: '120px', objectFit: 'cover', width: '100%' }} />
                   ) : (
                     <div className="product-image-placeholder"></div>
                   )}
-                  
+
                   <div className="product-info">
                     <h3>{item.nama_menu}</h3>
                     {activeTab === 'merch' ? (
-                       <p className="price" style={{color: 'var(--primary)'}}>{parseInt(item.harga).toLocaleString('id-ID')} Poin</p>
+                      <p className="price" style={{ color: 'var(--primary)' }}>{parseInt(item.harga).toLocaleString('id-ID')} Poin</p>
                     ) : (
-                       <p className="price">Rp {parseInt(item.harga).toLocaleString('id-ID')}</p>
+                      <p className="price">Rp {parseInt(item.harga).toLocaleString('id-ID')}</p>
                     )}
-                    
+
                     {activeTab === 'menu' && (
                       totalQty > 0 && !item.varian ? (
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto'}} onClick={e => e.stopPropagation()}>
-                          <button onClick={() => removeFromCart(cartItems[0].cartItemId)} style={{width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold'}}>-</button>
-                          <span style={{fontWeight: 'bold'}}>{totalQty}</span>
-                          <button onClick={() => handleProductClick(item)} style={{width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold'}}>+</button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
+                          <button onClick={() => removeFromCart(cartItems[0].cartItemId)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold' }}>-</button>
+                          <span style={{ fontWeight: 'bold' }}>{totalQty}</span>
+                          <button onClick={() => handleProductClick(item)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold' }}>+</button>
                         </div>
                       ) : totalQty > 0 && item.varian ? (
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto'}} onClick={e => e.stopPropagation()}>
-                          <span style={{fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.9rem'}}>{totalQty} di keranjang</span>
-                          <button onClick={() => handleProductClick(item)} style={{padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem'}}>+ Tambah</button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
+                          <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.9rem' }}>{totalQty} di keranjang</span>
+                          <button onClick={() => handleProductClick(item)} style={{ padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem' }}>+ Tambah</button>
                         </div>
                       ) : (
                         <button className="add-btn" onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}>+ Tambah</button>
@@ -585,104 +733,104 @@ function App() {
                     )}
                   </div>
                 </div>
-               );
+              );
             })}
-            
+
             {activeTab === 'merch' && merchItems.length === 0 && (
-               <div style={{gridColumn: '1 / -1', textAlign: 'center', padding: '20px'}}>Belum ada merchandise tersedia.</div>
+              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px' }}>Belum ada merchandise tersedia.</div>
             )}
           </div>
         )}
 
         {orderType === 'Dine-In' && (
-          <div style={{marginTop: '24px', padding: '12px', background: '#fff', borderRadius: '8px', border: '1px dashed var(--primary)', textAlign: 'center'}}>
-            <div style={{fontSize: '0.9rem', marginBottom: '8px', color: '#334155'}}>Kami siap layanan antar! Siap antar ke rumah Anda.</div>
-            <button onClick={() => window.location.href = window.location.pathname} style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', width: '100%'}}>🛵 Klik di Sini untuk Pesan Antar</button>
+          <div style={{ marginTop: '24px', padding: '12px', background: '#fff', borderRadius: '8px', border: '1px dashed var(--primary)', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.9rem', marginBottom: '8px', color: '#334155' }}>Kami siap layanan antar! Siap antar ke rumah Anda.</div>
+            <button onClick={() => window.location.href = window.location.pathname} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', width: '100%' }}>🛵 Klik di Sini untuk Pesan Antar</button>
           </div>
         )}
       </main>
 
       {/* Checkout Screen */}
       <main className="main-content" style={{ display: showCheckout ? 'block' : 'none' }}>
-        <div style={{display: 'flex', alignItems: 'center', marginBottom: '20px'}}>
-           <button onClick={() => setShowCheckout(false)} style={{background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', marginRight: '16px'}}>←</button>
-           <h2 style={{margin: 0}}>Keranjang Belanja</h2>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
+          <button onClick={() => setShowCheckout(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', marginRight: '16px' }}>←</button>
+          <h2 style={{ margin: 0 }}>Keranjang Belanja</h2>
         </div>
 
-        <div className="glass-card" style={{padding: '16px', marginBottom: '24px'}}>
-          <h3 style={{marginBottom: '16px'}}>Detail Pesanan</h3>
+        <div className="glass-card" style={{ padding: '16px', marginBottom: '24px' }}>
+          <h3 style={{ marginBottom: '16px' }}>Detail Pesanan</h3>
           {cart.map(c => (
-            <div key={c.cartItemId} style={{display: 'flex', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '12px'}}>
-              <div style={{flex: 1, paddingRight: '10px'}}>
-                <div style={{fontWeight: 'bold'}}>{c.nama_menu}</div>
-                {c.varian_text && <div style={{fontSize: '0.75rem', color: '#666', marginTop: '2px', fontStyle: 'italic'}}>{c.varian_text}</div>}
-                {c.catatan && <div style={{fontSize: '0.75rem', color: '#666', marginTop: '2px'}}>Catatan: {c.catatan}</div>}
-                <div style={{fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px'}}>
-                  <button onClick={() => removeFromCart(c.cartItemId)} style={{background: 'none', border: '1px solid #ccc', borderRadius: '4px', width: '24px', height: '24px', marginRight: '8px', cursor: 'pointer'}}>-</button>
-                  {c.qty} 
-                  <button onClick={() => addToCart(c, c.varian_text, c.custom_price)} style={{background: 'none', border: '1px solid #ccc', borderRadius: '4px', width: '24px', height: '24px', marginLeft: '8px', cursor: 'pointer'}}>+</button>
-                  <span style={{marginLeft: '8px'}}>x Rp {(c.custom_price !== undefined ? c.custom_price : c.harga).toLocaleString('id-ID')}</span>
+            <div key={c.cartItemId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '12px' }}>
+              <div style={{ flex: 1, paddingRight: '10px' }}>
+                <div style={{ fontWeight: 'bold' }}>{c.nama_menu}</div>
+                {c.varian_text && <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px', fontStyle: 'italic' }}>{c.varian_text}</div>}
+                {c.catatan && <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>Catatan: {c.catatan}</div>}
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  <button onClick={() => removeFromCart(c.cartItemId)} style={{ background: 'none', border: '1px solid #ccc', borderRadius: '4px', width: '24px', height: '24px', marginRight: '8px', cursor: 'pointer' }}>-</button>
+                  {c.qty}
+                  <button onClick={() => addToCart(c, c.varian_text, c.custom_price)} style={{ background: 'none', border: '1px solid #ccc', borderRadius: '4px', width: '24px', height: '24px', marginLeft: '8px', cursor: 'pointer' }}>+</button>
+                  <span style={{ marginLeft: '8px' }}>x Rp {(c.custom_price !== undefined ? c.custom_price : c.harga).toLocaleString('id-ID')}</span>
                 </div>
               </div>
-              <div style={{fontWeight: 'bold'}}>
-                 Rp {(c.qty * (c.custom_price !== undefined ? c.custom_price : c.harga)).toLocaleString('id-ID')}
+              <div style={{ fontWeight: 'bold' }}>
+                Rp {(c.qty * (c.custom_price !== undefined ? c.custom_price : c.harga)).toLocaleString('id-ID')}
               </div>
             </div>
           ))}
-          <div style={{display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '1.2rem', fontWeight: 'bold'}}>
-             <span>Total</span>
-             <span>Rp {cartTotal.toLocaleString('id-ID')}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '1.2rem', fontWeight: 'bold' }}>
+            <span>Total</span>
+            <span>Rp {cartTotal.toLocaleString('id-ID')}</span>
           </div>
         </div>
 
-        <div className="glass-card" style={{padding: '16px', marginBottom: '24px'}}>
-           <h3 style={{marginBottom: '16px'}}>Detail Pemesan</h3>
-           
-           <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Nama Pemesan</label>
-           <input type="text" value={customerName} onChange={e=>setCustomerName(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}} placeholder="Nama Anda" />
+        <div className="glass-card" style={{ padding: '16px', marginBottom: '24px' }}>
+          <h3 style={{ marginBottom: '16px' }}>Detail Pemesan</h3>
 
-           <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Nomor HP / WA</label>
-           <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}} placeholder="08xx xxxx xxxx" />
+          <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold' }}>Nama Pemesan</label>
+          <input type="text" value={customerName} onChange={e => {setCustomerName(e.target.value); localStorage.setItem('savedCustomerName', e.target.value);}} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px' }} placeholder="Nama Anda" />
 
-           {orderType === 'Dine-In' && (
-             <>
-               <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Nomor Meja</label>
-               <input type="text" value={tableNumber} onChange={e=>setTableNumber(e.target.value)} readOnly={new URLSearchParams(window.location.search).has('meja')} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px', background: new URLSearchParams(window.location.search).has('meja') ? '#f3f4f6' : '#fff'}} placeholder="Contoh: Meja 12" />
-             </>
-           )}
+          <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold' }}>Nomor HP / WA</label>
+          <input type="tel" value={phone} onChange={e => {setPhone(e.target.value); localStorage.setItem('savedPhone', e.target.value);}} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px' }} placeholder="08xx xxxx xxxx" />
 
-           {orderType === 'Delivery' && (
-             <>
-               <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Alamat Lengkap</label>
-               <textarea value={address} onChange={e=>setAddress(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px', minHeight: '80px'}} placeholder="Alamat Pengiriman..." />
-               
-               <div style={{display: 'flex', gap: '10px', marginBottom: '16px'}}>
-                 <button onClick={getGPSLocation} style={{background: '#10B981', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', flex: 1, fontWeight: 'bold'}}>📍 Ambil Koordinat GPS (ShareLoc)</button>
-               </div>
-               {location && <div style={{fontSize: '0.8rem', color: 'gray', marginBottom: '16px'}}>Koordinat: {location}</div>}
-             </>
-           )}
+          {orderType === 'Dine-In' && (
+            <>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold' }}>Nomor Meja</label>
+              <input type="text" value={tableNumber} onChange={e => setTableNumber(e.target.value)} readOnly={new URLSearchParams(window.location.search).has('meja')} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px', background: new URLSearchParams(window.location.search).has('meja') ? '#f3f4f6' : '#fff' }} placeholder="Contoh: Meja 12" />
+            </>
+          )}
 
-           <label style={{display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold'}}>Metode Pembayaran</label>
-           <select value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)} style={{width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px'}}>
-             {orderType === 'Dine-In' ? (
-               <>
-                 <option value="Tunai">Tunai</option>
-                 <option value="QRIS">QRIS</option>
-               </>
-             ) : (
-               <>
-                 <option value="COD">COD (Bayar di Tempat)</option>
-                 <option value="Transfer">Transfer Bank</option>
-               </>
-             )}
-           </select>
+          {orderType === 'Delivery' && (
+            <>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold' }}>Alamat Lengkap</label>
+              <textarea value={address} onChange={e => setAddress(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px', minHeight: '80px' }} placeholder="Alamat Pengiriman..." />
+
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+                <button onClick={getGPSLocation} style={{ background: '#10B981', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', flex: 1, fontWeight: 'bold' }}>📍 Ambil Koordinat GPS (ShareLoc)</button>
+              </div>
+              {location && <div style={{ fontSize: '0.8rem', color: 'gray', marginBottom: '16px' }}>Koordinat: {location}</div>}
+            </>
+          )}
+
+          <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 'bold' }}>Metode Pembayaran</label>
+          <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '16px' }}>
+            {orderType === 'Dine-In' ? (
+              <>
+                <option value="Tunai">Tunai</option>
+                <option value="QRIS">QRIS</option>
+              </>
+            ) : (
+              <>
+                <option value="COD">COD (Bayar di Tempat)</option>
+                <option value="Transfer">Transfer Bank</option>
+              </>
+            )}
+          </select>
         </div>
 
-        <button 
-          onClick={submitOrder} 
+        <button
+          onClick={submitOrder}
           disabled={loading}
-          style={{width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.1rem', opacity: loading ? 0.7 : 1}}
+          style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.1rem', opacity: loading ? 0.7 : 1 }}
         >
           {loading ? 'Memproses...' : 'Kirim Pesanan Sekarang'}
         </button>
@@ -706,7 +854,7 @@ function App() {
           <div className="variant-modal">
             <div className="modal-drag-handle"></div>
             <h2 className="modal-title">{selectedProductForVariant.nama_menu}</h2>
-            
+
             <div className="modal-scroll-area">
               {selectedProductForVariant.parsedVariants.map((group, gIdx) => (
                 <div key={gIdx} className="variant-group">
@@ -715,10 +863,10 @@ function App() {
                     if (!group.isMultiple) {
                       const isSelected = variantSelections[group.groupName] === opt.name;
                       return (
-                        <div key={oIdx} className={`variant-option ${isSelected ? 'selected' : ''}`} onClick={() => setVariantSelections({...variantSelections, [group.groupName]: opt.name})}>
+                        <div key={oIdx} className={`variant-option ${isSelected ? 'selected' : ''}`} onClick={() => setVariantSelections({ ...variantSelections, [group.groupName]: opt.name })}>
                           <div className="variant-left">
                             <div className={`radio-circle ${isSelected ? 'active' : ''}`}>
-                               {isSelected && <div className="radio-inner"></div>}
+                              {isSelected && <div className="radio-inner"></div>}
                             </div>
                             <span className="variant-name">{opt.name} {opt.price > 0 ? `(+Rp ${opt.price.toLocaleString('id-ID')})` : ''}</span>
                           </div>
@@ -740,27 +888,27 @@ function App() {
                             });
                           }}>
                             <div className={`checkbox-square ${isSelected ? 'active' : ''}`}>
-                               {isSelected && '✓'}
+                              {isSelected && '✓'}
                             </div>
                             <span className="variant-name">{opt.name} {opt.price > 0 ? `(+Rp ${opt.price.toLocaleString('id-ID')})` : ''}</span>
                           </div>
                           {isSelected && (
                             <div className="variant-qty-controls">
-                               <button onClick={() => {
-                                  const currentSel = variantSelections[group.groupName] || {};
-                                  setVariantSelections({
-                                    ...variantSelections,
-                                    [group.groupName]: { ...currentSel, [opt.name]: Math.max(0, qty - 1) }
-                                  });
-                               }}>-</button>
-                               <span>{qty}</span>
-                               <button onClick={() => {
-                                  const currentSel = variantSelections[group.groupName] || {};
-                                  setVariantSelections({
-                                    ...variantSelections,
-                                    [group.groupName]: { ...currentSel, [opt.name]: qty + 1 }
-                                  });
-                               }}>+</button>
+                              <button onClick={() => {
+                                const currentSel = variantSelections[group.groupName] || {};
+                                setVariantSelections({
+                                  ...variantSelections,
+                                  [group.groupName]: { ...currentSel, [opt.name]: Math.max(0, qty - 1) }
+                                });
+                              }}>-</button>
+                              <span>{qty}</span>
+                              <button onClick={() => {
+                                const currentSel = variantSelections[group.groupName] || {};
+                                setVariantSelections({
+                                  ...variantSelections,
+                                  [group.groupName]: { ...currentSel, [opt.name]: qty + 1 }
+                                });
+                              }}>+</button>
                             </div>
                           )}
                         </div>
@@ -769,15 +917,15 @@ function App() {
                   })}
                 </div>
               ))}
-              
+
               <div className="variant-group">
-                 <input 
-                   type="text" 
-                   className="variant-notes-input" 
-                   placeholder="Catatan Tambahan (Opsional)" 
-                   value={variantNotes}
-                   onChange={e => setVariantNotes(e.target.value)}
-                 />
+                <input
+                  type="text"
+                  className="variant-notes-input"
+                  placeholder="Catatan Tambahan (Opsional)"
+                  value={variantNotes}
+                  onChange={e => setVariantNotes(e.target.value)}
+                />
               </div>
             </div>
 
@@ -790,33 +938,33 @@ function App() {
                   <button onClick={() => setVariantQty(variantQty + 1)}>+</button>
                 </div>
               </div>
-              
+
               <button className="submit-variant-btn" onClick={handleVariantSubmit}>
-                 Tambahkan - Rp {(() => {
-                    let extraPrice = 0;
-                    selectedProductForVariant.parsedVariants.forEach(group => {
-                      if (!group.isMultiple) {
-                        const sel = variantSelections[group.groupName];
-                        if (sel) {
-                          const opt = group.options.find(o => o.name === sel);
-                          if (opt) extraPrice += opt.price || 0;
-                        }
-                      } else {
-                        const selObj = variantSelections[group.groupName] || {};
-                        const selectedNames = Object.keys(selObj).filter(k => selObj[k] > 0);
-                        selectedNames.forEach(name => {
-                          const qty = selObj[name];
-                          const opt = group.options.find(o => o.name === name);
-                          if (opt) extraPrice += (opt.price || 0) * qty;
-                        });
+                Tambahkan - Rp {(() => {
+                  let extraPrice = 0;
+                  selectedProductForVariant.parsedVariants.forEach(group => {
+                    if (!group.isMultiple) {
+                      const sel = variantSelections[group.groupName];
+                      if (sel) {
+                        const opt = group.options.find(o => o.name === sel);
+                        if (opt) extraPrice += opt.price || 0;
                       }
-                    });
-                    const totalPrice = (parseInt(selectedProductForVariant.harga) + extraPrice) * variantQty;
-                    return totalPrice.toLocaleString('id-ID');
-                 })()}
+                    } else {
+                      const selObj = variantSelections[group.groupName] || {};
+                      const selectedNames = Object.keys(selObj).filter(k => selObj[k] > 0);
+                      selectedNames.forEach(name => {
+                        const qty = selObj[name];
+                        const opt = group.options.find(o => o.name === name);
+                        if (opt) extraPrice += (opt.price || 0) * qty;
+                      });
+                    }
+                  });
+                  const totalPrice = (parseInt(selectedProductForVariant.harga) + extraPrice) * variantQty;
+                  return totalPrice.toLocaleString('id-ID');
+                })()}
               </button>
             </div>
-            
+
             <button className="modal-close-btn" onClick={() => setSelectedProductForVariant(null)}>×</button>
           </div>
         </div>

@@ -5,9 +5,6 @@ export const apiCall = async (action, payload = {}) => {
     const response = await fetch(BASE_URL, {
       method: 'POST',
       body: JSON.stringify({ action, payload }),
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8',
-      },
       redirect: 'follow'
     });
     const data = await response.json();
