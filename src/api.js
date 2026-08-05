@@ -37,3 +37,7 @@ export const createOrder = async (orderData) => {
 export const checkOrderStatus = async (orderId) => {
   return apiCall('CHECK_ORDER_STATUS', { order_id: orderId });
 };
+
+export const checkOrdersByPhone = async (phone) => {
+  return apiCall('CHECK_ORDERS_BY_PHONE', { no_hp: phone });
+};

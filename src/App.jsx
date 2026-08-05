@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder, checkOrderStatus } from './api'
+import { fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder, checkOrderStatus, checkOrdersByPhone } from './api'
 import './index.css'
 
 const CAFE_LAT = -6.870245;
@@ -50,6 +50,7 @@ function App() {
   // Check Order State
   const [trackOrderId, setTrackOrderId] = useState(localStorage.getItem('lastOrderId') || '');
   const [trackOrderResult, setTrackOrderResult] = useState(null);
+  const [trackOrdersList, setTrackOrdersList] = useState(null);
   const [isTracking, setIsTracking] = useState(false);
 
   // Security States
@@ -605,7 +606,7 @@ function App() {
             })()}
 
             {activeTab === 'orders' && (() => {
-              const savedOrderId = trackOrderId || localStorage.getItem('lastOrderId');
+              const savedPhone = phone || localStorage.getItem('savedPhone');
               const statusColor = (s) => {
                 if (s === 'SIAP' || s === 'OTW') return {bg: '#d1fae5', color: '#059669'};
                 if (s === 'SELESAI') return {bg: '#f1f5f9', color: '#64748b'};
@@ -624,99 +625,96 @@ function App() {
                 return s;
               };
 
-              // Auto-fetch on tab open
-              if (!trackOrderResult && savedOrderId && !isTracking) {
+              // Auto-fetch by phone on tab open
+              if (!trackOrdersList && savedPhone && !isTracking) {
                 setTimeout(async () => {
                   setIsTracking(true);
-                  setTrackOrderId(savedOrderId);
-                  const res = await checkOrderStatus(savedOrderId);
+                  const res = await checkOrdersByPhone(savedPhone);
                   setIsTracking(false);
-                  if (res.success && res.data) setTrackOrderResult(res.data);
+                  if (res.success && res.data) setTrackOrdersList(res.data);
+                  else setTrackOrdersList([]);
                 }, 0);
               }
 
+              const doRefresh = async () => {
+                if (!savedPhone) return;
+                setIsTracking(true);
+                const res = await checkOrdersByPhone(savedPhone);
+                setIsTracking(false);
+                if (res.success && res.data) setTrackOrdersList(res.data);
+                else setTrackOrdersList([]);
+              };
+
               return (
                 <div style={{ gridColumn: '1 / -1', minHeight: '300px' }}>
-                  {isTracking && !trackOrderResult && (
+                  {isTracking && !trackOrdersList && (
                     <div style={{textAlign: 'center', padding: '60px 20px', color: '#94a3b8'}}>
                       <div className="spinner" style={{border: '4px solid rgba(16, 185, 129, 0.3)', borderTop: '4px solid #10B981', borderRadius: '50%', width: '36px', height: '36px', animation: 'spin 1s linear infinite', margin: '0 auto 16px'}}></div>
                       Memuat pesanan...
                     </div>
                   )}
 
-                  {!isTracking && !trackOrderResult && !savedOrderId && (
+                  {!isTracking && !savedPhone && (
+                    <div style={{textAlign: 'center', padding: '60px 20px', color: '#94a3b8', background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}>
+                      <span style={{fontSize: '3.5rem', display: 'block', marginBottom: '12px'}}>📱</span>
+                      <p style={{fontSize: '1.1rem', fontWeight: '600', color: '#475569', marginBottom: '8px'}}>Masukkan Nomor HP</p>
+                      <p style={{fontSize: '0.9rem'}}>Silakan masukkan nomor HP Anda di kolom atas dan tekan "Cek Poin" agar pesanan bisa ditampilkan.</p>
+                    </div>
+                  )}
+
+                  {!isTracking && trackOrdersList && trackOrdersList.length === 0 && (
                     <div style={{textAlign: 'center', padding: '60px 20px', color: '#94a3b8', background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}>
                       <span style={{fontSize: '3.5rem', display: 'block', marginBottom: '12px'}}>📋</span>
                       <p style={{fontSize: '1.1rem', fontWeight: '600', color: '#475569', marginBottom: '8px'}}>Belum Ada Pesanan</p>
-                      <p style={{fontSize: '0.9rem'}}>Silakan pesan menu terlebih dahulu, status pesanan Anda akan muncul di sini.</p>
+                      <p style={{fontSize: '0.9rem'}}>Tidak ditemukan pesanan untuk nomor {savedPhone}.</p>
+                      <button onClick={doRefresh} style={{marginTop: '16px', background: 'var(--primary)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold'}}>🔄 Coba Lagi</button>
                     </div>
                   )}
 
-                  {!isTracking && !trackOrderResult && savedOrderId && (
-                    <div style={{textAlign: 'center', padding: '60px 20px', color: '#94a3b8', background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}>
-                      <span style={{fontSize: '3.5rem', display: 'block', marginBottom: '12px'}}>😕</span>
-                      <p style={{fontSize: '1.1rem', fontWeight: '600', color: '#475569', marginBottom: '8px'}}>Pesanan Tidak Ditemukan</p>
-                      <p style={{fontSize: '0.9rem'}}>Order ID: {savedOrderId}</p>
-                      <button onClick={async () => { setIsTracking(true); const res = await checkOrderStatus(savedOrderId); setIsTracking(false); if (res.success && res.data) setTrackOrderResult(res.data); }} style={{marginTop: '16px', background: 'var(--primary)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold'}}>Coba Lagi</button>
-                    </div>
-                  )}
-
-                  {trackOrderResult && (
-                    <div style={{background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', overflow: 'hidden', animation: 'fadeInUp 0.3s ease'}}>
-                      {/* Header Card */}
-                      <div style={{background: `linear-gradient(135deg, ${statusColor(trackOrderResult.status_pesanan).color}22, ${statusColor(trackOrderResult.status_pesanan).color}11)`, padding: '20px', borderBottom: '1px solid #e2e8f0'}}>
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'}}>
-                          <span style={{fontSize: '0.85rem', color: '#64748b'}}>Order #{trackOrderResult.order_id}</span>
-                          <button onClick={async () => { setIsTracking(true); const res = await checkOrderStatus(trackOrderResult.order_id); setIsTracking(false); if (res.success && res.data) setTrackOrderResult(res.data); }} style={{background: 'none', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 10px', fontSize: '0.8rem', cursor: 'pointer', color: '#64748b'}}>🔄 Refresh</button>
-                        </div>
-                        <div style={{display: 'inline-block', background: statusColor(trackOrderResult.status_pesanan).bg, color: statusColor(trackOrderResult.status_pesanan).color, padding: '8px 16px', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem'}}>
-                          {statusLabel(trackOrderResult.status_pesanan)}
-                        </div>
+                  {trackOrdersList && trackOrdersList.length > 0 && (
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                        <h3 style={{margin: 0, color: '#1e293b', fontSize: '1.1rem'}}>Pesanan Terbaru</h3>
+                        <button onClick={doRefresh} disabled={isTracking} style={{background: 'none', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '6px 14px', fontSize: '0.85rem', cursor: 'pointer', color: '#64748b', fontWeight: '600'}}>{isTracking ? '⏳' : '🔄'} Refresh</button>
                       </div>
-
-                      {/* Items List */}
-                      <div style={{padding: '16px 20px'}}>
-                        <h4 style={{marginBottom: '12px', fontSize: '0.95rem', color: '#475569'}}>Rincian Pesanan</h4>
-                        {trackOrderResult.items && trackOrderResult.items.length > 0 ? (
-                          trackOrderResult.items.map((item, idx) => (
-                            <div key={idx} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: idx < trackOrderResult.items.length - 1 ? '1px solid #f1f5f9' : 'none'}}>
-                              <div style={{flex: 1}}>
-                                <div style={{fontWeight: '600', fontSize: '0.9rem'}}>{item.nama_menu}</div>
-                                {item.catatan && <div style={{fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic', marginTop: '2px'}}>{item.catatan}</div>}
-                                <div style={{fontSize: '0.8rem', color: '#64748b', marginTop: '2px'}}>{item.qty}x @ Rp {(item.harga_satuan || 0).toLocaleString('id-ID')}</div>
-                              </div>
-                              <div style={{fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap'}}>Rp {(item.subtotal || 0).toLocaleString('id-ID')}</div>
+                      {trackOrdersList.map((order, oi) => (
+                        <div key={oi} style={{background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', overflow: 'hidden', animation: 'fadeInUp 0.3s ease'}}>
+                          {/* Header */}
+                          <div style={{background: `linear-gradient(135deg, ${statusColor(order.status_pesanan).color}22, ${statusColor(order.status_pesanan).color}11)`, padding: '16px 20px', borderBottom: '1px solid #e2e8f0'}}>
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'}}>
+                              <span style={{fontSize: '0.85rem', color: '#64748b', fontWeight: '600'}}>#{order.order_id}</span>
+                              {order.nomor_meja && <span style={{fontSize: '0.8rem', color: '#64748b'}}>🪑 {order.nomor_meja}</span>}
                             </div>
-                          ))
-                        ) : (
-                          <div style={{color: '#94a3b8', fontSize: '0.9rem', padding: '8px 0'}}>Detail item tidak tersedia</div>
-                        )}
-                      </div>
-
-                      {/* Footer Summary */}
-                      <div style={{padding: '16px 20px', background: '#f8fafc', borderTop: '2px dashed #e2e8f0'}}>
-                        <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.9rem'}}>
-                          <span style={{color: '#64748b'}}>Subtotal</span>
-                          <span>Rp {(trackOrderResult.subtotal || 0).toLocaleString('id-ID')}</span>
-                        </div>
-                        {trackOrderResult.ongkir > 0 && (
-                          <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.9rem'}}>
-                            <span style={{color: '#64748b'}}>Ongkos Kirim</span>
-                            <span>Rp {trackOrderResult.ongkir.toLocaleString('id-ID')}</span>
+                            <div style={{display: 'inline-block', background: statusColor(order.status_pesanan).bg, color: statusColor(order.status_pesanan).color, padding: '6px 14px', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem'}}>
+                              {statusLabel(order.status_pesanan)}
+                            </div>
                           </div>
-                        )}
-                        <div style={{display: 'flex', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid #e2e8f0', fontWeight: 'bold', fontSize: '1.15rem'}}>
-                          <span>Total</span>
-                          <span style={{color: 'var(--primary)'}}>Rp {(trackOrderResult.total_bayar || 0).toLocaleString('id-ID')}</span>
-                        </div>
-                      </div>
 
-                      {/* Info Footer */}
-                      <div style={{padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                        <div>💳 {trackOrderResult.metode_bayar}</div>
-                        {trackOrderResult.alamat_pengiriman && <div>📍 {trackOrderResult.alamat_pengiriman}</div>}
-                        {trackOrderResult.nomor_meja && <div>🪑 Meja {trackOrderResult.nomor_meja}</div>}
-                      </div>
+                          {/* Items */}
+                          <div style={{padding: '12px 20px'}}>
+                            {order.items && order.items.length > 0 ? (
+                              order.items.map((item, idx) => (
+                                <div key={idx} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: idx < order.items.length - 1 ? '1px solid #f1f5f9' : 'none'}}>
+                                  <div style={{flex: 1}}>
+                                    <div style={{fontWeight: '600', fontSize: '0.88rem'}}>{item.nama_menu}</div>
+                                    {item.catatan && <div style={{fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic'}}>{item.catatan}</div>}
+                                    <div style={{fontSize: '0.75rem', color: '#64748b'}}>{item.qty}x @ Rp {(item.harga_satuan || 0).toLocaleString('id-ID')}</div>
+                                  </div>
+                                  <div style={{fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap'}}>Rp {(item.subtotal || 0).toLocaleString('id-ID')}</div>
+                                </div>
+                              ))
+                            ) : (
+                              <div style={{color: '#94a3b8', fontSize: '0.85rem', padding: '4px 0'}}>Detail item tidak tersedia</div>
+                            )}
+                          </div>
+
+                          {/* Total */}
+                          <div style={{padding: '12px 20px', background: '#f8fafc', borderTop: '2px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                            <div style={{fontSize: '0.8rem', color: '#94a3b8'}}>💳 {order.metode_bayar}</div>
+                            <div style={{fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary)'}}>Rp {(order.total_bayar || 0).toLocaleString('id-ID')}</div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
