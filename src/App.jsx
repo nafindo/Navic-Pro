@@ -2,6 +2,21 @@ import { useState, useEffect } from 'react'
 import { fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder } from './api'
 import './index.css'
 
+const CAFE_LAT = -6.870245;
+const CAFE_LNG = 112.344962;
+const MAX_RADIUS = 50; // dalam meter
+
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // radius bumi dalam meter
+  const p1 = lat1 * Math.PI/180;
+  const p2 = lat2 * Math.PI/180;
+  const dp = (lat2-lat1) * Math.PI/180;
+  const dl = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState('menu');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -30,6 +45,11 @@ function App() {
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderId, setOrderId] = useState('');
 
+  // Security States
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [gpsBlocked, setGpsBlocked] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+
   useEffect(() => {
     // Auto detect table from URL if any
     const params = new URLSearchParams(window.location.search);
@@ -37,6 +57,40 @@ function App() {
     if (mejaUrl) {
       setTableNumber(mejaUrl);
       setOrderType('Dine-In');
+
+      // 1. Session Check (1 Jam)
+      const sessionKey = 'resto_session_meja';
+      const sessionData = JSON.parse(localStorage.getItem(sessionKey) || '{}');
+      const now = Date.now();
+      let isExpired = false;
+      if (sessionData.meja === mejaUrl && (now - sessionData.timestamp >= 3600000)) {
+        isExpired = true;
+        setSessionExpired(true);
+        localStorage.removeItem(sessionKey);
+      } else if (sessionData.meja !== mejaUrl || !sessionData.timestamp) {
+        localStorage.setItem(sessionKey, JSON.stringify({ meja: mejaUrl, timestamp: now }));
+      }
+
+      // 2. GPS Geofencing Check (50m)
+      if (!isExpired) {
+        if ('geolocation' in navigator) {
+          setGpsLoading(true);
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const dist = getDistance(CAFE_LAT, CAFE_LNG, position.coords.latitude, position.coords.longitude);
+              if (dist > MAX_RADIUS) setGpsBlocked(true);
+              setGpsLoading(false);
+            }, 
+            (error) => {
+              setGpsBlocked(true); // Jika ditolak atau error, blokir
+              setGpsLoading(false);
+            }, 
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+        } else {
+           setGpsBlocked(true);
+        }
+      }
     }
     loadData();
   }, []);
@@ -300,6 +354,37 @@ function App() {
           </p>
           <button className="add-btn" style={{width: '100%'}} onClick={() => {setOrderSuccess(false); setShowCheckout(false);}}>Kembali ke Menu</button>
         </div>
+      </div>
+    );
+  }
+  if (gpsLoading) {
+    return (
+      <div style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc'}}>
+         <h2 style={{color: 'var(--primary)', marginBottom: '10px'}}>📍 Memeriksa Lokasi...</h2>
+         <p>Mohon tunggu sebentar, kami sedang memastikan Anda berada di dalam area Cafe.</p>
+         <p style={{fontSize: '0.8rem', color: '#64748b', marginTop: '10px'}}>(Pastikan Anda mengizinkan akses GPS/Lokasi saat diminta browser)</p>
+      </div>
+    );
+  }
+
+  if (gpsBlocked) {
+    return (
+      <div style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc'}}>
+         <h2 style={{color: '#ef4444', marginBottom: '10px'}}>Anda Berada di Luar Area Cafe 🛑</h2>
+         <p style={{marginBottom: '20px'}}>Sistem mendeteksi Anda tidak berada dalam radius cafe, atau Anda menolak memberikan izin lokasi.</p>
+         <p style={{marginBottom: '30px', fontWeight: 'bold'}}>Jika ingin pesan antar ke rumah, silakan beralih ke mode Delivery.</p>
+         <button onClick={() => window.location.href = window.location.pathname} style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.1rem'}}>🛵 Beralih ke Layanan Antar</button>
+      </div>
+    );
+  }
+
+  if (sessionExpired) {
+    return (
+      <div style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc'}}>
+         <h2 style={{color: '#f59e0b', marginBottom: '10px'}}>Sesi Anda Telah Berakhir ⏱️</h2>
+         <p style={{marginBottom: '20px'}}>Waktu pemesanan untuk meja ini (1 jam) telah habis demi keamanan transaksi.</p>
+         <p style={{marginBottom: '30px', fontWeight: 'bold'}}>Jika Anda masih berada di restoran, silakan tutup tab ini dan Scan Ulang QR Code secara fisik di atas meja.</p>
+         <button onClick={() => window.location.href = window.location.pathname} style={{background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.1rem'}}>🛵 Atau Beralih ke Pesan Antar</button>
       </div>
     );
   }
