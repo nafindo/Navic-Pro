@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder, checkOrderStatus, checkOrdersByPhone, uploadPaymentProof } from './api'
+import { apiCall, fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder, checkOrderStatus, checkOrdersByPhone, uploadPaymentProof } from './api'
 import './index.css'
 
 const CAFE_LAT = -6.870245;
@@ -325,17 +325,11 @@ function App() {
   const handleCallWaiter = async (order) => {
     setIsCallingWaiter(prev => ({ ...prev, [order.order_id]: true }));
     try {
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          action: 'CUSTOMER_CALL_WAITER',
-          order_id: order.order_id,
-          nomor_meja: order.nomor_meja || '-'
-        })
+      const data = await apiCall('CUSTOMER_CALL_WAITER', {
+        order_id: order.order_id,
+        nomor_meja: order.nomor_meja || '-'
       });
-      const data = await res.json();
-      if (data.success) {
+      if (data && data.success) {
         alert(data.message || "Pelayan akan segera datang.");
       } else {
         alert("Gagal memanggil pelayan: " + data.message);
