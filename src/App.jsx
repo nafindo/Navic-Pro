@@ -58,6 +58,7 @@ function App() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [gpsBlocked, setGpsBlocked] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [isCallingWaiter, setIsCallingWaiter] = useState({});
 
   useEffect(() => {
     // Auto detect table from URL if any
@@ -124,6 +125,30 @@ function App() {
     }
     return () => clearInterval(interval);
   }, [pollingOngkir, orderId]);
+
+  // Auto-refresh pesanan setiap 15 detik ketika tab orders aktif
+  useEffect(() => {
+    let interval;
+    if (activeTab === 'orders') {
+      const savedPhone = phone || localStorage.getItem('savedPhone');
+      if (savedPhone) {
+        // Fetch langsung saat tab dibuka
+        (async () => {
+          setIsTracking(true);
+          const res = await checkOrdersByPhone(savedPhone);
+          setIsTracking(false);
+          if (res.success && res.data) setTrackOrdersList(res.data);
+          else setTrackOrdersList([]);
+        })();
+        // Auto-refresh setiap 15 detik
+        interval = setInterval(async () => {
+          const res = await checkOrdersByPhone(savedPhone);
+          if (res.success && res.data) setTrackOrdersList(res.data);
+        }, 15000);
+      }
+    }
+    return () => clearInterval(interval);
+  }, [activeTab, phone]);
 
   const loadData = async () => {
     setLoading(true);
@@ -287,6 +312,33 @@ function App() {
       setCart(cart.map(c => c.cartItemId === cartItemId ? { ...c, qty: c.qty - 1 } : c));
     } else {
       setCart(cart.filter(c => c.cartItemId !== cartItemId));
+    }
+  };
+
+  const handleCallWaiter = async (order) => {
+    setIsCallingWaiter(prev => ({ ...prev, [order.order_id]: true }));
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          action: 'CUSTOMER_CALL_WAITER',
+          order_id: order.order_id,
+          nomor_meja: order.nomor_meja || '-'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "Pelayan akan segera datang.");
+      } else {
+        alert("Gagal memanggil pelayan: " + data.message);
+      }
+    } catch (e) {
+      alert("Terjadi kesalahan jaringan.");
+    } finally {
+      setIsCallingWaiter(prev => ({ ...prev, [order.order_id]: false }));
+      // Optional: Give a 10 seconds cooldown before they can call again? 
+      // Handled via simple alert for now.
     }
   };
 
@@ -609,11 +661,13 @@ function App() {
             {activeTab === 'orders' && (() => {
               const savedPhone = phone || localStorage.getItem('savedPhone');
               const statusColor = (s) => {
-                if (s === 'SIAP' || s === 'OTW') return {bg: '#d1fae5', color: '#059669'};
+                if (s === 'SIAP' || s === 'SIAP SAJI' || s === 'OTW') return {bg: '#d1fae5', color: '#059669'};
                 if (s === 'SELESAI') return {bg: '#f1f5f9', color: '#64748b'};
                 if (s === 'DIBATALKAN') return {bg: '#fee2e2', color: '#dc2626'};
                 if (s === 'VERIFIKASI PEMBAYARAN') return {bg: '#dbeafe', color: '#1d4ed8'};
-                if (s === 'DIKIRIM') return {bg: '#e0e7ff', color: '#4338ca'};
+                if (s === 'DIKIRIM' || s === 'DALAM PENGIRIMAN') return {bg: '#e0e7ff', color: '#4338ca'};
+                if (s === 'MEMASAK') return {bg: '#fff7ed', color: '#ea580c'};
+                if (s === 'DITERIMA KASIR') return {bg: '#ecfdf5', color: '#047857'};
                 return {bg: '#fef3c7', color: '#d97706'};
               };
               const statusLabel = (s) => {
@@ -621,24 +675,17 @@ function App() {
                 if (s === 'MENUNGGU ONGKIR') return '⏳ Menunggu Ongkir';
                 if (s === 'MENUNGGU PEMBAYARAN') return '💳 Menunggu Pembayaran';
                 if (s === 'VERIFIKASI PEMBAYARAN') return '🔍 Verifikasi Pembayaran';
+                if (s === 'DITERIMA KASIR') return '✅ Diterima Kasir';
+                if (s === 'MEMASAK') return '🍳 Sedang Dimasak';
                 if (s === 'SEDANG DIPROSES' || s === 'Sedang Diproses') return '🍳 Sedang Diproses';
                 if (s === 'SIAP' || s === 'SIAP SAJI') return '✅ Pesanan Siap';
+                if (s === 'DALAM PENGIRIMAN') return '🛵 Dalam Pengiriman';
                 if (s === 'OTW' || s === 'DIKIRIM') return '🚀 Sedang Diantar';
                 if (s === 'SELESAI') return '🎉 Selesai';
                 if (s === 'DIBATALKAN') return '❌ Dibatalkan';
                 return s;
               };
 
-              // Auto-fetch by phone on tab open
-              if (!trackOrdersList && savedPhone && !isTracking) {
-                setTimeout(async () => {
-                  setIsTracking(true);
-                  const res = await checkOrdersByPhone(savedPhone);
-                  setIsTracking(false);
-                  if (res.success && res.data) setTrackOrdersList(res.data);
-                  else setTrackOrdersList([]);
-                }, 0);
-              }
 
               const doRefresh = async () => {
                 if (!savedPhone) return;
@@ -649,24 +696,62 @@ function App() {
                 else setTrackOrdersList([]);
               };
 
+              const compressImage = (file) => {
+                return new Promise((resolve) => {
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                      const canvas = document.createElement('canvas');
+                      const MAX_WIDTH = 800;
+                      const MAX_HEIGHT = 800;
+                      let width = img.width;
+                      let height = img.height;
+
+                      if (width > height) {
+                        if (width > MAX_WIDTH) {
+                          height *= MAX_WIDTH / width;
+                          width = MAX_WIDTH;
+                        }
+                      } else {
+                        if (height > MAX_HEIGHT) {
+                          width *= MAX_HEIGHT / height;
+                          height = MAX_HEIGHT;
+                        }
+                      }
+                      canvas.width = width;
+                      canvas.height = height;
+                      const ctx = canvas.getContext('2d');
+                      ctx.drawImage(img, 0, 0, width, height);
+                      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+                      resolve(compressedBase64);
+                    };
+                    img.src = event.target.result;
+                  };
+                  reader.readAsDataURL(file);
+                });
+              };
+
               const handleFileChange = async (e, orderId) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 
-                const reader = new FileReader();
-                reader.onloadend = async () => {
-                  const base64String = reader.result;
-                  setIsUploadingPayment(prev => ({...prev, [orderId]: true}));
+                setIsUploadingPayment(prev => ({...prev, [orderId]: true}));
+                try {
+                  const base64String = await compressImage(file);
                   const res = await uploadPaymentProof(orderId, base64String);
-                  setIsUploadingPayment(prev => ({...prev, [orderId]: false}));
+                  
                   if (res.success) {
                     alert("Bukti transfer berhasil diunggah! Menunggu verifikasi kasir.");
                     doRefresh();
                   } else {
                     alert("Gagal mengunggah bukti: " + res.message);
                   }
-                };
-                reader.readAsDataURL(file);
+                } catch (error) {
+                  alert("Gagal memproses gambar.");
+                } finally {
+                  setIsUploadingPayment(prev => ({...prev, [orderId]: false}));
+                }
               };
 
               return (
@@ -732,10 +817,22 @@ function App() {
                             )}
                           </div>
 
-                          {/* Total */}
-                          <div style={{padding: '12px 20px', background: '#f8fafc', borderTop: '2px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                            <div style={{fontSize: '0.8rem', color: '#94a3b8'}}>💳 {order.metode_bayar}</div>
-                            <div style={{fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary)'}}>Rp {(order.total_bayar || 0).toLocaleString('id-ID')}</div>
+                          {/* Total with Ongkir breakdown */}
+                          <div style={{padding: '12px 20px', background: '#f8fafc', borderTop: '2px dashed #e2e8f0'}}>
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px'}}>
+                              <div style={{fontSize: '0.8rem', color: '#94a3b8'}}>Subtotal</div>
+                              <div style={{fontSize: '0.85rem', color: '#475569'}}>Rp {(order.subtotal || 0).toLocaleString('id-ID')}</div>
+                            </div>
+                            {order.ongkir > 0 && (
+                              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px'}}>
+                                <div style={{fontSize: '0.8rem', color: '#94a3b8'}}>🚚 Ongkir</div>
+                                <div style={{fontSize: '0.85rem', color: '#475569'}}>Rp {Number(order.ongkir).toLocaleString('id-ID')}</div>
+                              </div>
+                            )}
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid #e2e8f0'}}>
+                              <div style={{fontSize: '0.8rem', color: '#94a3b8'}}>💳 {order.metode_bayar}</div>
+                              <div style={{fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary)'}}>Rp {Math.max((order.total_bayar || 0), ((order.subtotal || 0) + (Number(order.ongkir) || 0))).toLocaleString('id-ID')}</div>
+                            </div>
                           </div>
 
                           {/* Payment Upload Section */}
@@ -745,14 +842,43 @@ function App() {
                                 Silakan lakukan pembayaran ke QRIS berikut, lalu unggah bukti transfer Anda:
                               </p>
                               <div style={{background: 'white', padding: '10px', borderRadius: '8px', textAlign: 'center', marginBottom: '12px', border: '1px solid #dbeafe'}}>
-                                <img src="/dummy-qris.png" alt="QRIS" style={{width: '150px', height: '150px', objectFit: 'contain', background: '#f1f5f9'}} />
-                                <div style={{fontSize: '0.75rem', color: '#64748b', marginTop: '6px'}}>*Contoh QRIS (Harap diganti dengan yang asli)</div>
+                                <img src="/qris.jpg" alt="QRIS Crunchy.co" style={{width: '200px', height: '200px', objectFit: 'contain', background: '#f1f5f9'}} />
+                                <div style={{marginTop: '10px'}}>
+                                  <a href="/qris.jpg" download="QRIS_Crunchy.jpg" style={{fontSize: '0.85rem', color: 'white', background: '#1e3a8a', padding: '8px 16px', borderRadius: '6px', textDecoration: 'none', display: 'inline-block', fontWeight: 'bold'}}>
+                                    ⬇️ Download QRIS
+                                  </a>
+                                </div>
                               </div>
                               
                               <label style={{display: 'block', background: isUploadingPayment[order.order_id] ? '#93c5fd' : '#2563eb', color: 'white', textAlign: 'center', padding: '10px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.9rem', cursor: isUploadingPayment[order.order_id] ? 'not-allowed' : 'pointer'}}>
                                 {isUploadingPayment[order.order_id] ? '⏳ Mengunggah...' : '📤 Unggah Bukti Transfer'}
                                 <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => handleFileChange(e, order.order_id)} disabled={isUploadingPayment[order.order_id]} />
                               </label>
+                            </div>
+                          )}
+                          {/* Call Waiter Button (Only for Dine-In) */}
+                          {order.nomor_meja && order.nomor_meja.toString().trim() !== '' && (order.status_pesanan !== 'BATAL' && order.status_pesanan !== 'SELESAI') && (
+                            <div style={{padding: '16px 20px', background: '#fdf4ff', borderTop: '1px solid #fbcfe8'}}>
+                              <button 
+                                onClick={() => handleCallWaiter(order)}
+                                disabled={isCallingWaiter[order.order_id]}
+                                style={{
+                                  width: '100%', 
+                                  background: isCallingWaiter[order.order_id] ? '#f472b6' : '#ec4899', 
+                                  color: 'white', 
+                                  border: 'none', 
+                                  padding: '12px', 
+                                  borderRadius: '8px', 
+                                  fontWeight: 'bold', 
+                                  cursor: isCallingWaiter[order.order_id] ? 'not-allowed' : 'pointer',
+                                  display: 'flex',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  fontSize: '0.95rem'
+                                }}>
+                                {isCallingWaiter[order.order_id] ? '⏳ Memanggil...' : '🛎️ Panggil Pelayan'}
+                              </button>
                             </div>
                           )}
                         </div>
