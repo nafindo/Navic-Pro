@@ -70,15 +70,22 @@ function App() {
 
       // 1. Session Check (1 Jam)
       const sessionKey = 'resto_session_meja';
-      const sessionData = JSON.parse(localStorage.getItem(sessionKey) || '{}');
+      const sessionData = JSON.parse(sessionStorage.getItem(sessionKey) || '{}');
       const now = Date.now();
       let isExpired = false;
       if (sessionData.meja === mejaUrl && (now - sessionData.timestamp >= 3600000)) {
         isExpired = true;
         setSessionExpired(true);
-        localStorage.removeItem(sessionKey);
+        sessionStorage.removeItem(sessionKey);
       } else if (sessionData.meja !== mejaUrl || !sessionData.timestamp) {
-        localStorage.setItem(sessionKey, JSON.stringify({ meja: mejaUrl, timestamp: now }));
+        sessionStorage.setItem(sessionKey, JSON.stringify({ meja: mejaUrl, timestamp: now }));
+      }
+
+      // Hapus parameter ?meja= dari URL bar agar tidak tersimpan di riwayat (history/bookmark)
+      // dan mencegah user mem-bypass dengan cara Refresh halaman.
+      if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
       }
 
       // 2. GPS Geofencing Check (50m)
@@ -1192,3 +1199,4 @@ function App() {
 }
 
 export default App
+console.log("force deploy");
