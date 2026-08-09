@@ -29,6 +29,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
   const [restoInfo, setRestoInfo] = useState({ status: 'Buka' });
+  const [customAlertMsg, setCustomAlertMsg] = useState(null);
 
   // Variant Modal State
   const [selectedProductForVariant, setSelectedProductForVariant] = useState(null);
@@ -246,7 +247,7 @@ function App() {
       const msg = restoInfo.status === 'Tutup' 
         ? `Mohon maaf, restoran saat ini sedang tutup.\nJam Operasional: ${restoInfo.jam_buka} s/d ${restoInfo.jam_tutup}.`
         : `Mohon maaf, restoran saat ini sedang libur dari tanggal ${restoInfo.libur_mulai} s/d ${restoInfo.libur_selesai}.`;
-      alert(msg);
+      setCustomAlertMsg(msg);
       return;
     }
 
@@ -257,7 +258,7 @@ function App() {
         parsedVariants = JSON.parse(item.varian);
       } catch (e) {
         console.error("Gagal parse varian:", e);
-        alert("Gagal membaca data varian: " + e.message + "\n\nVarian String: " + item.varian);
+        setCustomAlertMsg("Gagal membaca data varian: " + e.message + "\n\nVarian String: " + item.varian);
       }
 
       if (parsedVariants && Array.isArray(parsedVariants) && parsedVariants.length > 0) {
@@ -371,12 +372,12 @@ function App() {
         nomor_meja: order.nomor_meja || '-'
       });
       if (data && data.success) {
-        alert(data.message || "Pelayan akan segera datang.");
+        setCustomAlertMsg(data.message || "Pelayan akan segera datang.");
       } else {
-        alert("Gagal memanggil pelayan: " + data.message);
+        setCustomAlertMsg("Gagal memanggil pelayan: " + data.message);
       }
     } catch (e) {
-      alert("Terjadi kesalahan jaringan.");
+      setCustomAlertMsg("Terjadi kesalahan jaringan.");
     } finally {
       setIsCallingWaiter(prev => ({ ...prev, [order.order_id]: false }));
       // Optional: Give a 10 seconds cooldown before they can call again? 
@@ -401,23 +402,23 @@ function App() {
       navigator.geolocation.getCurrentPosition((pos) => {
         setLocation(`${pos.coords.latitude}, ${pos.coords.longitude}`);
       }, (err) => {
-        alert("Gagal mendapatkan lokasi GPS.");
+        setCustomAlertMsg("Gagal mendapatkan lokasi GPS.");
       });
     } else {
-      alert("Browser tidak support GPS.");
+      setCustomAlertMsg("Browser tidak support GPS.");
     }
   };
 
   const submitOrder = async () => {
-    if (!customerName) return alert("Mohon masukkan nama Anda!");
-    if (!phone) return alert("Mohon masukkan Nomor HP / WA Anda!");
+    if (!customerName) return setCustomAlertMsg("Mohon masukkan nama Anda!");
+    if (!phone) return setCustomAlertMsg("Mohon masukkan Nomor HP / WA Anda!");
     if (orderType === 'Delivery') {
-      if (!address) return alert("Mohon masukkan alamat pengiriman lengkap!");
-      if (!location) return alert("Mohon klik tombol '📍 Ambil Koordinat GPS (ShareLoc)' agar kurir bisa mengantar pesanan Anda!");
+      if (!address) return setCustomAlertMsg("Mohon masukkan alamat pengiriman lengkap!");
+      if (!location) return setCustomAlertMsg("Mohon klik tombol '📍 Ambil Koordinat GPS (ShareLoc)' agar kurir bisa mengantar pesanan Anda!");
     }
     if (cartTotalPoin > 0) {
-      if (points === null) return alert("Silakan Cek Poin terlebih dahulu sebelum menukar hadiah!");
-      if (points < cartTotalPoin) return alert(`Poin tidak cukup! Poin Anda: ${points}, Butuh: ${cartTotalPoin}`);
+      if (points === null) return setCustomAlertMsg("Silakan Cek Poin terlebih dahulu sebelum menukar hadiah!");
+      if (points < cartTotalPoin) return setCustomAlertMsg(`Poin tidak cukup! Poin Anda: ${points}, Butuh: ${cartTotalPoin}`);
     }
 
     setLoading(true);
@@ -472,7 +473,7 @@ function App() {
       }
       setCart([]);
     } else {
-      alert("Gagal memproses pesanan: " + res.message);
+      setCustomAlertMsg("Gagal memproses pesanan: " + res.message);
     }
     setLoading(false);
   };
@@ -573,7 +574,7 @@ function App() {
           Jika Anda masih berada di restoran, silakan hubungi kasir atau order langsung di kasir kembali.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '300px' }}>
-          <button onClick={() => { window.close(); alert('Sistem browser memblokir penutupan otomatis.\\n\\nSilakan TUTUP halaman ini secara manual (tekan tombol Home/kembali), lalu buka kembali Aplikasi KAMERA di HP Anda untuk men-scan struk yang baru.'); }} style={{ background: '#10B981', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>📷 Tutup & Buka Kamera</button>
+          <button onClick={() => { window.close(); setCustomAlertMsg('Sistem browser memblokir penutupan otomatis.\\n\\nSilakan TUTUP halaman ini secara manual (tekan tombol Home/kembali), lalu buka kembali Aplikasi KAMERA di HP Anda untuk men-scan struk yang baru.'); }} style={{ background: '#10B981', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>📷 Tutup & Buka Kamera</button>
           <button onClick={() => window.location.href = window.location.pathname} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>🛵 Beralih ke Pesan Antar</button>
         </div>
       </div>
@@ -819,13 +820,13 @@ function App() {
                   const res = await uploadPaymentProof(orderId, base64String);
                   
                   if (res.success) {
-                    alert("Bukti transfer berhasil diunggah! Menunggu verifikasi kasir.");
+                    setCustomAlertMsg("Bukti transfer berhasil diunggah! Menunggu verifikasi kasir.");
                     doRefresh();
                   } else {
-                    alert("Gagal mengunggah bukti: " + res.message);
+                    setCustomAlertMsg("Gagal mengunggah bukti: " + res.message);
                   }
                 } catch (error) {
-                  alert("Gagal memproses gambar.");
+                  setCustomAlertMsg("Gagal memproses gambar.");
                 } finally {
                   setIsUploadingPayment(prev => ({...prev, [orderId]: false}));
                 }
@@ -1264,9 +1265,37 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Custom Alert Modal */}
+      {customAlertMsg && (
+        <div className="modal-overlay" style={{ zIndex: 9999, padding: '20px', alignItems: 'center' }} onClick={() => setCustomAlertMsg(null)}>
+          <div className="glass-card" style={{ background: '#ffffff', padding: '24px', width: '100%', maxWidth: '400px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }} onClick={e => e.stopPropagation()}>
+            <style>{`
+              @keyframes popIn {
+                0% { transform: scale(0.8); opacity: 0; }
+                100% { transform: scale(1); opacity: 1; }
+              }
+            `}</style>
+            <div style={{ width: '60px', height: '60px', borderRadius: '30px', background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', margin: '0 auto 16px auto' }}>
+              !
+            </div>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '1.2rem', color: '#1e293b' }}>Pemberitahuan</h3>
+            <p style={{ margin: '0 0 24px 0', color: '#475569', fontSize: '0.95rem', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+              {customAlertMsg}
+            </p>
+            <button 
+              onClick={() => setCustomAlertMsg(null)}
+              style={{ width: '100%', padding: '14px', borderRadius: '16px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', transition: 'background 0.2s' }}
+            >
+              Mengerti
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 export default App
 console.log("force deploy");
+
