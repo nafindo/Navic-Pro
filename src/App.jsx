@@ -28,6 +28,7 @@ function App() {
   const [points, setPoints] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [restoInfo, setRestoInfo] = useState({ status: 'Buka' });
 
   // Variant Modal State
   const [selectedProductForVariant, setSelectedProductForVariant] = useState(null);
@@ -59,6 +60,8 @@ function App() {
   const [gpsBlocked, setGpsBlocked] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [isCallingWaiter, setIsCallingWaiter] = useState({});
+  const [isVerifyingTrx, setIsVerifyingTrx] = useState(false);
+  const [trxError, setTrxError] = useState(null);
 
   useEffect(() => {
     // Auto detect table from URL if any
@@ -73,20 +76,44 @@ function App() {
       const sessionData = JSON.parse(sessionStorage.getItem(sessionKey) || '{}');
       const now = Date.now();
       let isExpired = false;
-      if (sessionData.meja === mejaUrl && (now - sessionData.timestamp >= 3600000)) {
-        isExpired = true;
-        setSessionExpired(true);
-        sessionStorage.removeItem(sessionKey);
-      } else if (sessionData.meja !== mejaUrl || !sessionData.timestamp) {
-        sessionStorage.setItem(sessionKey, JSON.stringify({ meja: mejaUrl, timestamp: now }));
+      const trxParam = params.get('trx');
+      const tokenParam = params.get('token');
+
+      // Validasi sesi QR Dinamis dari Struk Kasir jika parameter token ada
+      if (tokenParam) {
+        setIsVerifyingTrx(true);
+        apiCall('VALIDATE_TRX_SESSION', { token: tokenParam, trx: trxParam, meja: mejaUrl })
+          .then(res => {
+            setIsVerifyingTrx(false);
+            if (res.success) {
+              // Sukses validasi backend, set session timestamp
+              sessionStorage.setItem(sessionKey, JSON.stringify({ meja: mejaUrl, trx: trxParam, token: tokenParam, timestamp: now }));
+            } else {
+              // Ditolak backend (kadaluarsa > 1 jam)
+              isExpired = true;
+              setSessionExpired(true);
+              setTrxError(res.message);
+              sessionStorage.removeItem(sessionKey);
+            }
+          })
+          .catch(err => {
+            setIsVerifyingTrx(false);
+            isExpired = true;
+            setSessionExpired(true);
+            setTrxError("Gagal menghubungi server. " + err.message);
+          });
+      } else {
+        // Logika Statis (Fallback)
+        if (sessionData.meja === mejaUrl && (now - sessionData.timestamp >= 3600000)) {
+          isExpired = true;
+          setSessionExpired(true);
+          sessionStorage.removeItem(sessionKey);
+        } else if (sessionData.meja !== mejaUrl || !sessionData.timestamp) {
+          sessionStorage.setItem(sessionKey, JSON.stringify({ meja: mejaUrl, timestamp: now }));
+        }
       }
 
-      // Hapus parameter ?meja= dari URL bar agar tidak tersimpan di riwayat (history/bookmark)
-      // dan mencegah user mem-bypass dengan cara Refresh halaman.
-      if (window.history && window.history.replaceState) {
-        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
-      }
+      // (Penghapusan URL bar dinonaktifkan karena token dinamis backend sudah aman & otomatis kedaluwarsa dalam 2 jam)
 
       // 2. GPS Geofencing Check (50m)
       if (!isExpired) {
@@ -164,8 +191,13 @@ function App() {
       const res = await fetchMasterData();
       const merchRes = await fetchMerchandise();
 
-      if (res.success && res.data && res.data.produk) {
-        const allProducts = res.data.produk.filter(p => p.is_tersedia);
+      if (res.success && res.data) {
+        if (res.data.resto_status) {
+          setRestoInfo(res.data.resto_status);
+        }
+        
+        if (res.data.produk) {
+          const allProducts = res.data.produk.filter(p => p.is_tersedia);
         const isMerch = (p) => p.kategori && (p.kategori.toLowerCase() === 'merchandise' || p.kategori.toLowerCase() === 'hadiah' || p.kategori.toLowerCase().includes('tukar poin'));
         setMenuItems(allProducts.filter(p => !isMerch(p)));
       } else {
@@ -489,6 +521,15 @@ function App() {
       </div>
     );
   }
+  if (isVerifyingTrx) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div className="loading-spinner" style={{ marginBottom: '20px' }}></div>
+        <h2 style={{ color: '#333', fontSize: '1.2rem' }}>Memverifikasi Sesi Meja...</h2>
+      </div>
+    );
+  }
+
   if (gpsLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc' }}>
@@ -513,11 +554,17 @@ function App() {
   if (sessionExpired) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px', textAlign: 'center', background: '#f8fafc' }}>
-        <h2 style={{ color: '#f59e0b', marginBottom: '10px' }}>Sesi Anda Telah Berakhir ⏱️</h2>
-        <p style={{ marginBottom: '20px' }}>Waktu pemesanan untuk meja ini (1 jam) telah habis demi keamanan transaksi.</p>
-        <p style={{ marginBottom: '30px', fontWeight: 'bold' }}>Jika Anda masih berada di restoran, silakan Scan Ulang QR Code di meja atau tekan tombol di bawah ini.</p>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '10px' }}>
+          {trxError ? "Akses Ditolak" : "Sesi Pemesanan Berakhir"}
+        </h2>
+        <p style={{ marginBottom: '20px' }}>
+          {trxError ? trxError : "Waktu pemesanan untuk sesi ini (1 jam) telah habis demi keamanan transaksi."}
+        </p>
+        <p style={{ marginBottom: '30px', fontWeight: 'bold' }}>
+          Jika Anda masih berada di restoran, silakan hubungi kasir atau order langsung di kasir kembali.
+        </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '300px' }}>
-          <button onClick={() => window.location.reload()} style={{ background: '#10B981', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>📷 Mulai Sesi Baru</button>
+          <button onClick={() => { window.close(); alert('Sistem browser memblokir penutupan otomatis.\\n\\nSilakan TUTUP halaman ini secara manual (tekan tombol Home/kembali), lalu buka kembali Aplikasi KAMERA di HP Anda untuk men-scan struk yang baru.'); }} style={{ background: '#10B981', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>📷 Tutup & Buka Kamera</button>
           <button onClick={() => window.location.href = window.location.pathname} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>🛵 Beralih ke Pesan Antar</button>
         </div>
       </div>
@@ -584,6 +631,26 @@ function App() {
             </div>
           </div>
         </div>
+
+        {/* Resto Status Banner */}
+        {restoInfo && restoInfo.status === 'Tutup' && (
+          <div style={{ background: '#fef3c7', color: '#b45309', padding: '16px', margin: '16px 20px', borderRadius: '12px', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+            <span style={{ fontSize: '2rem' }}>🌙</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>Restoran Sedang Tutup</h3>
+              <p style={{ margin: 0, fontSize: '0.9rem', marginTop: '4px' }}>Jam Operasional: {restoInfo.jam_buka} s/d {restoInfo.jam_tutup}. Pemesanan online dihentikan sementara.</p>
+            </div>
+          </div>
+        )}
+        {restoInfo && restoInfo.status === 'Libur' && (
+          <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '16px', margin: '16px 20px', borderRadius: '12px', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+            <span style={{ fontSize: '2rem' }}>🏖️</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>Restoran Sedang Libur</h3>
+              <p style={{ margin: 0, fontSize: '0.9rem', marginTop: '4px' }}>Kami sedang libur dari {restoInfo.libur_mulai} s/d {restoInfo.libur_selesai}. Sampai jumpa kembali!</p>
+            </div>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="tab-navigation">
@@ -843,9 +910,9 @@ function App() {
                                 Silakan lakukan pembayaran ke QRIS berikut, lalu unggah bukti transfer Anda:
                               </p>
                               <div style={{background: 'white', padding: '10px', borderRadius: '8px', textAlign: 'center', marginBottom: '12px', border: '1px solid #dbeafe'}}>
-                                <img src="/qris.jpg" alt="QRIS Crunchy.co" style={{width: '200px', height: '200px', objectFit: 'contain', background: '#f1f5f9'}} />
+                                <img src="/Navic-Pro/qris.jpg" alt="QRIS Crunchy.co" style={{width: '200px', height: '200px', objectFit: 'contain', background: '#f1f5f9'}} />
                                 <div style={{marginTop: '10px'}}>
-                                  <a href="/qris.jpg" download="QRIS_Crunchy.jpg" style={{fontSize: '0.85rem', color: 'white', background: '#1e3a8a', padding: '8px 16px', borderRadius: '6px', textDecoration: 'none', display: 'inline-block', fontWeight: 'bold'}}>
+                                  <a href="/Navic-Pro/qris.jpg" download="QRIS_Crunchy.jpg" style={{fontSize: '0.85rem', color: 'white', background: '#1e3a8a', padding: '8px 16px', borderRadius: '6px', textDecoration: 'none', display: 'inline-block', fontWeight: 'bold'}}>
                                     ⬇️ Download QRIS
                                   </a>
                                 </div>
@@ -937,17 +1004,17 @@ function App() {
                     {activeTab === 'menu' && (
                       totalQty > 0 && !item.varian ? (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
-                          <button onClick={() => removeFromCart(cartItems[0].cartItemId)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold' }}>-</button>
+                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => removeFromCart(cartItems[0].cartItemId)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1 }}>-</button>
                           <span style={{ fontWeight: 'bold' }}>{totalQty}</span>
-                          <button onClick={() => handleProductClick(item)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold' }}>+</button>
+                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(item)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1 }}>+</button>
                         </div>
                       ) : totalQty > 0 && item.varian ? (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
                           <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.9rem' }}>{totalQty} di keranjang</span>
-                          <button onClick={() => handleProductClick(item)} style={{ padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem' }}>+ Tambah</button>
+                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(item)} style={{ padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1 }}>+ Tambah</button>
                         </div>
                       ) : (
-                        <button className="add-btn" onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}>+ Tambah</button>
+                        <button disabled={restoInfo?.status !== 'Buka'} className="add-btn" style={{ opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1 }} onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}>+ Tambah</button>
                       )
                     )}
                   </div>
@@ -1057,7 +1124,7 @@ function App() {
       </main>
 
       {/* Floating Cart Button */}
-      {cartItemCount > 0 && !showCheckout && (
+      {cartItemCount > 0 && !showCheckout && restoInfo?.status === 'Buka' && (
         <div className="floating-cart glass-cart">
           <div className="cart-info">
             <span className="cart-count">{cartItemCount} Item</span>
