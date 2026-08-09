@@ -198,8 +198,9 @@ function App() {
         
         if (res.data.produk) {
           const allProducts = res.data.produk.filter(p => p.is_tersedia);
-        const isMerch = (p) => p.kategori && (p.kategori.toLowerCase() === 'merchandise' || p.kategori.toLowerCase() === 'hadiah' || p.kategori.toLowerCase().includes('tukar poin'));
-        setMenuItems(allProducts.filter(p => !isMerch(p)));
+          const isMerch = (p) => p.kategori && (p.kategori.toLowerCase() === 'merchandise' || p.kategori.toLowerCase() === 'hadiah' || p.kategori.toLowerCase().includes('tukar poin'));
+          setMenuItems(allProducts.filter(p => !isMerch(p)));
+        }
       } else {
         setErrorMsg("Gagal memuat data menu dari server.");
       }
