@@ -241,6 +241,14 @@ function App() {
   const handleProductClick = (item) => {
     if (!item.is_tersedia) return;
 
+    if (restoInfo && restoInfo.status !== 'Buka') {
+      const msg = restoInfo.status === 'Tutup' 
+        ? `Mohon maaf, restoran saat ini sedang tutup.\nJam Operasional: ${restoInfo.jam_buka} s/d ${restoInfo.jam_tutup}.`
+        : `Mohon maaf, restoran saat ini sedang libur dari tanggal ${restoInfo.libur_mulai} s/d ${restoInfo.libur_selesai}.`;
+      alert(msg);
+      return;
+    }
+
     // Check if item has variants
     if (item.varian) {
       let parsedVariants = null;
@@ -1004,17 +1012,17 @@ function App() {
                     {activeTab === 'menu' && (
                       totalQty > 0 && !item.varian ? (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
-                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => removeFromCart(cartItems[0].cartItemId)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1 }}>-</button>
+                          <button onClick={() => removeFromCart(cartItems[0].cartItemId)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold' }}>-</button>
                           <span style={{ fontWeight: 'bold' }}>{totalQty}</span>
-                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(item)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1 }}>+</button>
+                          <button onClick={() => handleProductClick(item)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold' }}>+</button>
                         </div>
                       ) : totalQty > 0 && item.varian ? (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
                           <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.9rem' }}>{totalQty} di keranjang</span>
-                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(item)} style={{ padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1 }}>+ Tambah</button>
+                          <button onClick={() => handleProductClick(item)} style={{ padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem' }}>+ Tambah</button>
                         </div>
                       ) : (
-                        <button disabled={restoInfo?.status !== 'Buka'} className="add-btn" style={{ opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1 }} onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}>+ Tambah</button>
+                        <button className="add-btn" onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}>+ Tambah</button>
                       )
                     )}
                   </div>
