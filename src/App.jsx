@@ -1012,17 +1012,17 @@ function App() {
                     {activeTab === 'menu' && (
                       totalQty > 0 && !item.varian ? (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
-                          <button onClick={() => { if(restoInfo?.status !== 'Buka') { handleProductClick(item); } else { removeFromCart(cartItems[0].cartItemId); } }} style={{ width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>-</button>
+                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => { if(restoInfo?.status !== 'Buka') { handleProductClick(item); } else { removeFromCart(cartItems[0].cartItemId); } }} style={{ width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>-</button>
                           <span style={{ fontWeight: 'bold' }}>{totalQty}</span>
-                          <button onClick={() => handleProductClick(item)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>+</button>
+                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(item)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>+</button>
                         </div>
                       ) : totalQty > 0 && item.varian ? (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
                           <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.9rem' }}>{totalQty} di keranjang</span>
-                          <button onClick={() => handleProductClick(item)} style={{ padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>+ Tambah</button>
+                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(item)} style={{ padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>+ Tambah</button>
                         </div>
                       ) : (
-                        <button className="add-btn" style={{ opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }} onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}>+ Tambah</button>
+                        <button disabled={restoInfo?.status !== 'Buka'} className="add-btn" style={{ opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }} onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}>+ Tambah</button>
                       )
                     )}
                   </div>
