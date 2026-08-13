@@ -999,8 +999,12 @@ function App() {
                   if (!kat || kat === 'semua' || kat === 'all') {
                     targetItems = [...menuItems].sort((a,b) => (b.terjual_minggu_ini || 0) - (a.terjual_minggu_ini || 0)).slice(0, 8);
                   } else {
-                    const targetList = kat.split(',').map(k => k.trim());
-                    targetItems = menuItems.filter(m => targetList.includes((m.kategori || '').toLowerCase()) || targetList.includes((m.nama_menu || '').toLowerCase()));
+                    const targetList = kat.split(',').map(k => k.trim().replace(/^(kat:prd:|kat:|prd:)/, ''));
+                    targetItems = menuItems.filter(m => 
+                      targetList.includes((m.kategori || '').toLowerCase()) || 
+                      targetList.includes((m.nama_menu || '').toLowerCase()) ||
+                      targetList.includes((m.id_produk || '').toLowerCase())
+                    );
                   }
 
                   if (targetItems.length > 0) {
