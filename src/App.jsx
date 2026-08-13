@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { apiCall, fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder, checkOrderStatus, checkOrdersByPhone, uploadPaymentProof } from './api'
+import { calculateDiscount } from './discountEngine'
 import './index.css'
 
 const CAFE_LAT = -6.870245;
@@ -55,6 +56,7 @@ function App() {
   const [trackOrdersList, setTrackOrdersList] = useState(null);
   const [isTracking, setIsTracking] = useState(false);
   const [isUploadingPayment, setIsUploadingPayment] = useState({});
+  const [promoList, setPromoList] = useState([]);
 
   // Security States
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -201,6 +203,9 @@ function App() {
           const allProducts = res.data.produk.filter(p => p.is_tersedia);
           const isMerch = (p) => p.kategori && (p.kategori.toLowerCase() === 'merchandise' || p.kategori.toLowerCase() === 'hadiah' || p.kategori.toLowerCase().includes('tukar poin'));
           setMenuItems(allProducts.filter(p => !isMerch(p)));
+        }
+        if (res.data.promo) {
+          setPromoList(res.data.promo);
         }
       } else {
         setErrorMsg("Gagal memuat data menu dari server.");
@@ -385,10 +390,13 @@ function App() {
     }
   };
 
-  const cartTotalRupiah = cart.filter(c => {
+  const nonMerchItems = cart.filter(c => {
     const isMerch = c.kategori && (c.kategori.toLowerCase() === 'merchandise' || c.kategori.toLowerCase() === 'hadiah' || c.kategori.toLowerCase().includes('tukar poin'));
     return !isMerch;
-  }).reduce((sum, item) => sum + ((item.custom_price !== undefined ? item.custom_price : item.harga || 0) * item.qty), 0);
+  });
+  const originalSubtotalRupiah = nonMerchItems.reduce((sum, item) => sum + ((item.custom_price !== undefined ? item.custom_price : item.harga || 0) * item.qty), 0);
+  const discountResult = calculateDiscount(nonMerchItems, orderType === 'Delivery', '', promoList);
+  const cartTotalRupiah = discountResult.finalSubtotal;
 
   const cartTotalPoin = cart.filter(c => {
     const isMerch = c.kategori && (c.kategori.toLowerCase() === 'merchandise' || c.kategori.toLowerCase() === 'hadiah' || c.kategori.toLowerCase().includes('tukar poin'));
@@ -449,9 +457,9 @@ function App() {
       koordinat_lokasi: location,
       metode_bayar: (orderType === 'Delivery' && (paymentMethod === 'Tunai' || paymentMethod === 'QRIS')) ? 'COD' : ((orderType === 'Dine-In' && (paymentMethod === 'COD' || paymentMethod === 'Transfer')) ? 'Tunai' : paymentMethod),
       items: items,
-      subtotal: cartTotalRupiah,
+      subtotal: originalSubtotalRupiah,
       pajak_ppn: 0,
-      diskon: 0,
+      diskon: discountResult.totalDiscountRp,
       total_bayar: cartTotalRupiah,
       poin_didapat: Math.floor(cartTotalRupiah / 10000), // contoh: 1 poin per 10rb
       poin_ditukar: cartTotalPoin
@@ -973,64 +981,140 @@ function App() {
                 ℹ️ Penukaran poin (Redeem) hanya dapat dilakukan langsung di Kasir/Cafe.
               </div>
             )}
-            {activeTab !== 'orders' && (activeTab === 'menu' ? (selectedCategory === '' ? [...menuItems].sort((a, b) => (b.terjual_minggu_ini || 0) - (a.terjual_minggu_ini || 0)).slice(0, 20) : menuItems.filter(item => item.kategori === selectedCategory)) : merchItems).map((item) => {
-              const cartItems = cart.filter(c => c.id_produk === item.id_produk);
-              const totalQty = cartItems.reduce((sum, c) => sum + c.qty, 0);
+            {activeTab !== 'orders' && (() => {
+              const isMenuTab = activeTab === 'menu';
+              const itemsToRender = isMenuTab ? (selectedCategory === '' ? [...menuItems].sort((a, b) => (b.terjual_minggu_ini || 0) - (a.terjual_minggu_ini || 0)).slice(0, 20) : menuItems.filter(item => item.kategori === selectedCategory)) : merchItems;
+              const validPromos = (isMenuTab && promoList) ? promoList.filter(p => p.is_active && (!p.target_platform || p.target_platform === 'Semua' || p.target_platform === (orderType === 'Delivery' ? 'Web Delivery' : 'Web Dine-In'))) : [];
+              let promoIndex = 0;
 
-              // Helper to convert Google Drive URL to direct image URL
-              let imageUrl = item.image_url;
-              if (imageUrl) {
-                let fileId = null;
-                if (imageUrl.includes('drive.google.com/file/d/')) {
-                  const match = imageUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-                  if (match) fileId = match[1];
-                } else if (imageUrl.includes('drive.google.com/uc')) {
-                  const match = imageUrl.match(/id=([a-zA-Z0-9_-]+)/);
-                  if (match) fileId = match[1];
+              return itemsToRender.map((item, index) => {
+                const elements = [];
+
+                if (isMenuTab && index > 0 && index % 4 === 0 && promoIndex < validPromos.length) {
+                  const promo = validPromos[promoIndex];
+                  promoIndex++;
+                  
+                  let targetItems = [];
+                  const kat = promo.kategori_target ? promo.kategori_target.toLowerCase() : "";
+                  if (!kat || kat === 'semua' || kat === 'all') {
+                    targetItems = [...menuItems].sort((a,b) => (b.terjual_minggu_ini || 0) - (a.terjual_minggu_ini || 0)).slice(0, 8);
+                  } else {
+                    const targetList = kat.split(',').map(k => k.trim());
+                    targetItems = menuItems.filter(m => targetList.includes((m.kategori || '').toLowerCase()) || targetList.includes((m.nama_menu || '').toLowerCase()));
+                  }
+
+                  if (targetItems.length > 0) {
+                    const isFreeDelivery = promo.tipe === 'FreeDelivery';
+                    elements.push(
+                      <div key={`promo-${promo.id_promo}`} style={{ gridColumn: '1 / -1', marginBottom: '32px', marginTop: '16px', marginLeft: '-20px', marginRight: '-20px', background: '#f8fafc', paddingTop: '24px', paddingBottom: '16px', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+                        <div style={{ margin: '0 20px 16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: isFreeDelivery ? '#dcfce7' : '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: isFreeDelivery ? '#16a34a' : '#ef4444' }}>{isFreeDelivery ? '🛵' : '%'}</span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <h3 style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', fontWeight: '900' }}>{promo.nama_promo}</h3>
+                            <span style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontWeight: 'bold', color: isFreeDelivery ? '#16a34a' : '#ef4444' }}>{isFreeDelivery ? 'Potongan Ongkir' : `Diskon ${promo.discount_percent}%`}</span>
+                              <span>•</span>
+                              <span>Min. Rp {parseInt(promo.min_order_rp || 0).toLocaleString('id-ID')}</span>
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', overflowX: 'auto', gap: '16px', padding: '0 20px', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }} className="hide-scrollbar">
+                          {targetItems.map(tItem => {
+                            const cItems = cart.filter(c => c.id_produk === tItem.id_produk);
+                            const tQty = cItems.reduce((sum, c) => sum + c.qty, 0);
+                            let tImg = tItem.image_url;
+                            if (tImg) {
+                              let fId = null;
+                              if (tImg.includes('drive.google.com/file/d/')) {
+                                const m = tImg.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                                if (m) fId = m[1];
+                              } else if (tImg.includes('drive.google.com/uc')) {
+                                const m = tImg.match(/id=([a-zA-Z0-9_-]+)/);
+                                if (m) fId = m[1];
+                              }
+                              if (fId) tImg = `https://lh3.googleusercontent.com/d/${fId}`;
+                            }
+                            return (
+                              <div key={`pitem-${tItem.id_produk}`} className="product-card glass-card" onClick={() => handleProductClick(tItem)} style={{ cursor: 'pointer', minWidth: '160px', flex: '0 0 auto', scrollSnapAlign: 'start', margin: 0 }}>
+                                {tImg ? <img src={tImg} alt={tItem.nama_menu} style={{ height: '120px', objectFit: 'cover', width: '100%' }} /> : <div className="product-image-placeholder"></div>}
+                                <div className="product-info">
+                                  <h3 style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tItem.nama_menu}</h3>
+                                  <p className="price" style={{ fontSize: '0.85rem' }}>Rp {parseInt(tItem.harga).toLocaleString('id-ID')}</p>
+                                  {tQty > 0 ? (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
+                                      <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.8rem' }}>{tQty} item</span>
+                                      <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(tItem)} style={{ padding: '4px 10px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.75rem', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>+ Tambah</button>
+                                    </div>
+                                  ) : (
+                                    <button disabled={restoInfo?.status !== 'Buka'} className="add-btn" style={{ padding: '6px', fontSize: '0.8rem', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }} onClick={(e) => { e.stopPropagation(); handleProductClick(tItem); }}>+ Tambah</button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
                 }
 
-                if (fileId) {
-                  // Gunakan lh3.googleusercontent.com yang dijamin bisa nampil di img tag browser modern
-                  imageUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+                const cartItems = cart.filter(c => c.id_produk === item.id_produk);
+                const totalQty = cartItems.reduce((sum, c) => sum + c.qty, 0);
+
+                let imageUrl = item.image_url;
+                if (imageUrl) {
+                  let fileId = null;
+                  if (imageUrl.includes('drive.google.com/file/d/')) {
+                    const match = imageUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                    if (match) fileId = match[1];
+                  } else if (imageUrl.includes('drive.google.com/uc')) {
+                    const match = imageUrl.match(/id=([a-zA-Z0-9_-]+)/);
+                    if (match) fileId = match[1];
+                  }
+                  if (fileId) imageUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
                 }
-              }
 
-              return (
-                <div key={item.id_produk} className="product-card glass-card" onClick={() => handleProductClick(item)} style={{ cursor: 'pointer' }}>
-                  {imageUrl ? (
-                    <img src={imageUrl} alt={item.nama_menu} style={{ height: '120px', objectFit: 'cover', width: '100%' }} />
-                  ) : (
-                    <div className="product-image-placeholder"></div>
-                  )}
-
-                  <div className="product-info">
-                    <h3>{item.nama_menu}</h3>
-                    {activeTab === 'merch' ? (
-                      <p className="price" style={{ color: 'var(--primary)' }}>{parseInt(item.harga).toLocaleString('id-ID')} Poin</p>
+                elements.push(
+                  <div key={item.id_produk} className="product-card glass-card" onClick={() => handleProductClick(item)} style={{ cursor: 'pointer' }}>
+                    {imageUrl ? (
+                      <img src={imageUrl} alt={item.nama_menu} style={{ height: '120px', objectFit: 'cover', width: '100%' }} />
                     ) : (
-                      <p className="price">Rp {parseInt(item.harga).toLocaleString('id-ID')}</p>
+                      <div className="product-image-placeholder"></div>
                     )}
 
-                    {activeTab === 'menu' && (
-                      totalQty > 0 && !item.varian ? (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
-                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => { if(restoInfo?.status !== 'Buka') { handleProductClick(item); } else { removeFromCart(cartItems[0].cartItemId); } }} style={{ width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>-</button>
-                          <span style={{ fontWeight: 'bold' }}>{totalQty}</span>
-                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(item)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>+</button>
-                        </div>
-                      ) : totalQty > 0 && item.varian ? (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
-                          <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.9rem' }}>{totalQty} di keranjang</span>
-                          <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(item)} style={{ padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>+ Tambah</button>
-                        </div>
+                    <div className="product-info">
+                      <h3>{item.nama_menu}</h3>
+                      {activeTab === 'merch' ? (
+                        <p className="price" style={{ color: 'var(--primary)' }}>{parseInt(item.harga).toLocaleString('id-ID')} Poin</p>
                       ) : (
-                        <button disabled={restoInfo?.status !== 'Buka'} className="add-btn" style={{ opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }} onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}>+ Tambah</button>
-                      )
-                    )}
+                        <p className="price">Rp {parseInt(item.harga).toLocaleString('id-ID')}</p>
+                      )}
+
+                      {activeTab === 'menu' && (
+                        totalQty > 0 && !item.varian ? (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
+                            <button disabled={restoInfo?.status !== 'Buka'} onClick={() => { if(restoInfo?.status !== 'Buka') { handleProductClick(item); } else { removeFromCart(cartItems[0].cartItemId); } }} style={{ width: '32px', height: '32px', borderRadius: '16px', border: '1px solid var(--primary)', background: '#fff', color: 'var(--primary)', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>-</button>
+                            <span style={{ fontWeight: 'bold' }}>{totalQty}</span>
+                            <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(item)} style={{ width: '32px', height: '32px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>+</button>
+                          </div>
+                        ) : totalQty > 0 && item.varian ? (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
+                            <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.9rem' }}>{totalQty} di keranjang</span>
+                            <button disabled={restoInfo?.status !== 'Buka'} onClick={() => handleProductClick(item)} style={{ padding: '4px 12px', borderRadius: '16px', border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem', opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }}>+ Tambah</button>
+                          </div>
+                        ) : (
+                          <button disabled={restoInfo?.status !== 'Buka'} className="add-btn" style={{ opacity: restoInfo?.status !== 'Buka' ? 0.5 : 1, cursor: restoInfo?.status !== 'Buka' ? 'not-allowed' : 'pointer' }} onClick={(e) => { e.stopPropagation(); handleProductClick(item); }}>+ Tambah</button>
+                        )
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+
+                return <React.Fragment key={item.id_produk}>{elements}</React.Fragment>;
+              });
+            })()}
 
             {activeTab === 'merch' && merchItems.length === 0 && (
               <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px' }}>Belum ada merchandise tersedia.</div>
