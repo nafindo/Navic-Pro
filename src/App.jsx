@@ -1045,7 +1045,16 @@ function App() {
                                 {tImg ? <img src={tImg} alt={tItem.nama_menu} style={{ height: '120px', objectFit: 'cover', width: '100%' }} /> : <div className="product-image-placeholder"></div>}
                                 <div className="product-info">
                                   <h3 style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tItem.nama_menu}</h3>
-                                  <p className="price" style={{ fontSize: '0.85rem' }}>Rp {parseInt(tItem.harga).toLocaleString('id-ID')}</p>
+                                  {promo.tipe !== 'FreeDelivery' ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '4px' }}>
+                                      <span style={{ fontSize: '0.7rem', textDecoration: 'line-through', color: '#94a3b8' }}>Rp {parseInt(tItem.harga).toLocaleString('id-ID')}</span>
+                                      <span className="price" style={{ fontSize: '0.85rem', color: '#ef4444' }}>
+                                        Rp {parseInt(Math.max(0, tItem.harga - Math.min(tItem.harga * (promo.discount_percent / 100), promo.discount_max_rp > 0 ? promo.discount_max_rp : Infinity))).toLocaleString('id-ID')}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <p className="price" style={{ fontSize: '0.85rem' }}>Rp {parseInt(tItem.harga).toLocaleString('id-ID')}</p>
+                                  )}
                                   {tQty > 0 ? (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
                                       <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.8rem' }}>{tQty} item</span>
@@ -1061,6 +1070,22 @@ function App() {
                         </div>
                       </div>
                     );
+                  }
+                }
+
+                let activeItemPromo = null;
+                if (isMenuTab && validPromos.length > 0) {
+                  for (let p of validPromos) {
+                    if (p.tipe === 'FreeDelivery') continue;
+                    let kat = p.kategori_target ? p.kategori_target.toLowerCase() : "";
+                    if (!kat || kat === 'semua' || kat === 'all') {
+                      activeItemPromo = p; break;
+                    } else {
+                      const tList = kat.split(',').map(k => k.trim().replace(/^(kat:prd:|kat:|prd:)/, ''));
+                      if (tList.includes((item.kategori || '').toLowerCase()) || tList.includes((item.nama_menu || '').toLowerCase()) || tList.includes((item.id_produk || '').toLowerCase())) {
+                        activeItemPromo = p; break;
+                      }
+                    }
                   }
                 }
 
@@ -1092,6 +1117,13 @@ function App() {
                       <h3>{item.nama_menu}</h3>
                       {activeTab === 'merch' ? (
                         <p className="price" style={{ color: 'var(--primary)' }}>{parseInt(item.harga).toLocaleString('id-ID')} Poin</p>
+                      ) : activeItemPromo ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '0.8rem', textDecoration: 'line-through', color: '#94a3b8' }}>Rp {parseInt(item.harga).toLocaleString('id-ID')}</span>
+                          <span className="price" style={{ fontSize: '1rem', color: '#ef4444' }}>
+                            Rp {parseInt(Math.max(0, item.harga - Math.min(item.harga * (activeItemPromo.discount_percent / 100), activeItemPromo.discount_max_rp > 0 ? activeItemPromo.discount_max_rp : Infinity))).toLocaleString('id-ID')}
+                          </span>
+                        </div>
                       ) : (
                         <p className="price">Rp {parseInt(item.harga).toLocaleString('id-ID')}</p>
                       )}
