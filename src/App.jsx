@@ -703,11 +703,6 @@ function App() {
           </div>
         ) : (
           <div className="products-grid">
-            {activeTab === 'menu' && (
-              <div style={{ gridColumn: '1 / -1', width: '100%', marginBottom: '24px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                <img src="/Navic-Pro/banner_promo.jpg" alt="Promo Spesial" style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover', minHeight: '120px', backgroundColor: '#f1f5f9' }} onError={(e) => { e.target.src = 'https://placehold.co/800x400/f8fafc/334155?text=Banner+Promosi+(Upload+banner_promo.jpg+ke+Navic-Pro)'; }} />
-              </div>
-            )}
             {activeTab === 'menu' && (() => {
               const uniqueCategories = [...new Set(menuItems.map(item => item.kategori).filter(Boolean))];
               if (uniqueCategories.length === 0) return null;
@@ -1078,6 +1073,14 @@ function App() {
                             );
                           })}
                         </div>
+                      </div>
+                    );
+                  }
+
+                  if (promoIndex === 1) {
+                    elements.push(
+                      <div key="promo-banner-hero" style={{ gridColumn: '1 / -1', width: '100%', marginBottom: '24px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                        <img src="/Navic-Pro/banner_promo.jpg" alt="Promo Spesial" style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover', minHeight: '120px', backgroundColor: '#f1f5f9' }} onError={(e) => { e.target.style.display = 'none'; }} />
                       </div>
                     );
                   }
