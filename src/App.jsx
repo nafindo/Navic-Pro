@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { apiCall, fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder, checkOrderStatus, checkOrdersByPhone, uploadPaymentProof } from './api'
 import { calculateDiscount } from './discountEngine'
 import './index.css'
