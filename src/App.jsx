@@ -703,6 +703,11 @@ function App() {
           </div>
         ) : (
           <div className="products-grid">
+            {activeTab === 'menu' && (
+              <div style={{ gridColumn: '1 / -1', width: '100%', marginBottom: '24px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                <img src="/Navic-Pro/banner_promo.jpg" alt="Promo Spesial" style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover', minHeight: '120px', backgroundColor: '#f1f5f9' }} onError={(e) => { e.target.src = 'https://placehold.co/800x400/f8fafc/334155?text=Banner+Promosi+(Upload+banner_promo.jpg+ke+Navic-Pro)'; }} />
+              </div>
+            )}
             {activeTab === 'menu' && (() => {
               const uniqueCategories = [...new Set(menuItems.map(item => item.kategori).filter(Boolean))];
               if (uniqueCategories.length === 0) return null;
@@ -1010,7 +1015,7 @@ function App() {
                   if (targetItems.length > 0) {
                     const isFreeDelivery = promo.tipe === 'FreeDelivery';
                     elements.push(
-                      <div key={`promo-${promo.id_promo}`} style={{ gridColumn: '1 / -1', marginBottom: '32px', marginTop: '16px', marginLeft: '-20px', marginRight: '-20px', background: '#f8fafc', paddingTop: '24px', paddingBottom: '16px', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+                      <div key={`promo-${promo.id_promo}`} style={{ gridColumn: '1 / -1', marginBottom: '32px', marginTop: '16px', marginLeft: '-20px', marginRight: '-20px', background: promo.tipe === 'HappyHour' ? 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)' : '#f8fafc', paddingTop: '24px', paddingBottom: '16px', borderTop: promo.tipe === 'HappyHour' ? '1px solid #fecdd3' : '1px solid #e2e8f0', borderBottom: promo.tipe === 'HappyHour' ? '1px solid #fecdd3' : '1px solid #e2e8f0' }}>
                         <div style={{ margin: '0 20px 16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: isFreeDelivery ? '#dcfce7' : '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: isFreeDelivery ? '#16a34a' : '#ef4444' }}>{isFreeDelivery ? '🛵' : '%'}</span>
@@ -1041,7 +1046,12 @@ function App() {
                               if (fId) tImg = `https://lh3.googleusercontent.com/d/${fId}`;
                             }
                             return (
-                              <div key={`pitem-${tItem.id_produk}`} className="product-card glass-card" onClick={() => handleProductClick(tItem)} style={{ cursor: 'pointer', minWidth: '160px', flex: '0 0 auto', scrollSnapAlign: 'start', margin: 0 }}>
+                              <div key={`pitem-${tItem.id_produk}`} className="product-card glass-card" onClick={() => handleProductClick(tItem)} style={{ cursor: 'pointer', minWidth: '160px', flex: '0 0 auto', scrollSnapAlign: 'start', margin: 0, position: 'relative' }}>
+                                {promo.tipe !== 'FreeDelivery' && promo.discount_percent > 0 && (
+                                  <div style={{ position: 'absolute', top: '8px', right: '8px', background: '#ef4444', color: 'white', padding: '4px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                                    Diskon {promo.discount_percent}%
+                                  </div>
+                                )}
                                 {tImg ? <img src={tImg} alt={tItem.nama_menu} style={{ height: '120px', objectFit: 'cover', width: '100%' }} /> : <div className="product-image-placeholder"></div>}
                                 <div className="product-info">
                                   <h3 style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tItem.nama_menu}</h3>
@@ -1106,7 +1116,12 @@ function App() {
                 }
 
                 elements.push(
-                  <div key={item.id_produk} className="product-card glass-card" onClick={() => handleProductClick(item)} style={{ cursor: 'pointer' }}>
+                  <div key={item.id_produk} className="product-card glass-card" onClick={() => handleProductClick(item)} style={{ cursor: 'pointer', position: 'relative' }}>
+                    {activeItemPromo && activeItemPromo.tipe !== 'FreeDelivery' && activeItemPromo.discount_percent > 0 && (
+                      <div style={{ position: 'absolute', top: '8px', right: '8px', background: '#ef4444', color: 'white', padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                        Diskon {activeItemPromo.discount_percent}%
+                      </div>
+                    )}
                     {imageUrl ? (
                       <img src={imageUrl} alt={item.nama_menu} style={{ height: '120px', objectFit: 'cover', width: '100%' }} />
                     ) : (
