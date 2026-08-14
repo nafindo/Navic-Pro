@@ -45,3 +45,7 @@ export const checkOrdersByPhone = async (phone) => {
 export const uploadPaymentProof = async (orderId, base64Image) => {
   return apiCall('UPLOAD_PAYMENT_PROOF', { order_id: orderId, base64_image: base64Image });
 };
+
+export const fetchBanners = async () => {
+  return apiCall('SYNC_BANNERS');
+};

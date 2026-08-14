@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { apiCall, fetchMasterData, fetchMerchandise, checkLoyaltyPoints, createOrder, checkOrderStatus, checkOrdersByPhone, uploadPaymentProof } from './api'
+import { apiCall, fetchMasterData, fetchMerchandise, fetchBanners, checkLoyaltyPoints, createOrder, checkOrderStatus, checkOrdersByPhone, uploadPaymentProof } from './api'
 import { calculateDiscount } from './discountEngine'
 import './index.css'
 
@@ -57,6 +57,8 @@ function App() {
   const [isTracking, setIsTracking] = useState(false);
   const [isUploadingPayment, setIsUploadingPayment] = useState({});
   const [promoList, setPromoList] = useState([]);
+  const [bannerList, setBannerList] = useState([]);
+  const [bannerIndex, setBannerIndex] = useState(0);
 
   // Security States
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -187,6 +189,15 @@ function App() {
     return () => clearInterval(interval);
   }, [activeTab, phone]);
 
+  // Auto-slide banner carousel every 4 seconds
+  useEffect(() => {
+    if (bannerList.length <= 1) return;
+    const timer = setInterval(() => {
+      setBannerIndex(prev => (prev + 1) % bannerList.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [bannerList.length]);
+
   const loadData = async () => {
     setLoading(true);
     setErrorMsg(null);
@@ -228,6 +239,16 @@ function App() {
       setErrorMsg("Koneksi error: " + e.message);
     }
     setLoading(false);
+
+    // Fetch banners separately
+    try {
+      const bannerRes = await fetchBanners();
+      if (bannerRes.success && bannerRes.data) {
+        setBannerList(bannerRes.data.filter(b => b.is_active && b.url_gambar));
+      }
+    } catch (e) {
+      console.error('Banner fetch error:', e);
+    }
   };
 
   const handleCheckPoints = async () => {
@@ -1077,7 +1098,38 @@ function App() {
                     );
                   }
 
-                  if (promoIndex === 1) {
+                  if (promoIndex === 1 && bannerList.length > 0) {
+                    elements.push(
+                      <div key="promo-banner-hero" style={{ gridColumn: '1 / -1', width: '100%', marginBottom: '24px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', position: 'relative' }}>
+                        {bannerList.map((banner, bIdx) => (
+                          <img
+                            key={banner.id_banner || bIdx}
+                            src={banner.url_gambar}
+                            alt={banner.nama_banner || 'Promo Banner'}
+                            style={{
+                              width: '100%', height: 'auto', display: bIdx === (bannerIndex % bannerList.length) ? 'block' : 'none',
+                              objectFit: 'cover', minHeight: '120px', backgroundColor: '#f1f5f9',
+                              transition: 'opacity 0.5s ease-in-out'
+                            }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        ))}
+                        {bannerList.length > 1 && (
+                          <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px' }}>
+                            {bannerList.map((_, bIdx) => (
+                              <div key={bIdx} style={{
+                                width: bIdx === (bannerIndex % bannerList.length) ? '20px' : '8px',
+                                height: '8px', borderRadius: '4px',
+                                backgroundColor: bIdx === (bannerIndex % bannerList.length) ? '#fff' : 'rgba(255,255,255,0.5)',
+                                transition: 'all 0.3s ease', cursor: 'pointer'
+                              }} onClick={() => setBannerIndex(bIdx)} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  } else if (promoIndex === 1 && bannerList.length === 0) {
+                    // Fallback to static banner if no dynamic banners
                     elements.push(
                       <div key="promo-banner-hero" style={{ gridColumn: '1 / -1', width: '100%', marginBottom: '24px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                         <img src="/Navic-Pro/banner_promo.jpg" alt="Promo Spesial" style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover', minHeight: '120px', backgroundColor: '#f1f5f9' }} onError={(e) => { e.target.style.display = 'none'; }} />
