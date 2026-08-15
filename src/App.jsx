@@ -1104,7 +1104,7 @@ function App() {
                         {bannerList.map((banner, bIdx) => (
                           <img
                             key={banner.id_banner || bIdx}
-                            src={banner.url_gambar}
+                            src={banner.url_gambar.includes('uc?id=') ? banner.url_gambar.replace('uc?id=', 'thumbnail?id=') + '&sz=w1000' : banner.url_gambar}
                             alt={banner.nama_banner || 'Promo Banner'}
                             style={{
                               width: '100%', height: 'auto', display: bIdx === (bannerIndex % bannerList.length) ? 'block' : 'none',
