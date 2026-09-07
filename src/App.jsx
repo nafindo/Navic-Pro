@@ -311,12 +311,20 @@ function App() {
   };
 
   const addToCart = (item, customVarianText = '', customPrice = null) => {
-    // Merging logic: same product ID, same variants, same custom price
-    const existing = cart.find(c =>
-      c.id_produk === item.id_produk &&
-      (c.varian_text || '') === customVarianText &&
-      (c.custom_price === customPrice)
-    );
+    const targetPrice = customPrice !== null && customPrice !== undefined ? Number(customPrice) : Number(item.harga);
+    const targetVarian = (customVarianText || '').trim();
+    const targetNotes = (item.catatan || '').trim();
+
+    // Merging logic: same product ID, same variants, same notes, same unit price
+    const existing = cart.find(c => {
+      const cPrice = c.custom_price !== null && c.custom_price !== undefined ? Number(c.custom_price) : Number(c.harga);
+      const cVarian = (c.varian_text || '').trim();
+      const cNotes = (c.catatan || '').trim();
+      return c.id_produk === item.id_produk &&
+        cVarian === targetVarian &&
+        cNotes === targetNotes &&
+        cPrice === targetPrice;
+    });
 
     if (existing) {
       setCart(cart.map(c => c.cartItemId === existing.cartItemId ? { ...c, qty: c.qty + (item.qty || 1) } : c));
@@ -325,8 +333,9 @@ function App() {
         ...item,
         cartItemId: Date.now() + Math.random().toString(36).substr(2, 9),
         qty: item.qty || 1,
-        varian_text: customVarianText,
-        custom_price: customPrice !== null ? customPrice : item.harga
+        varian_text: targetVarian,
+        catatan: targetNotes,
+        custom_price: targetPrice
       }]);
     }
   };
@@ -453,20 +462,33 @@ function App() {
     setLoading(true);
     const newOrderId = (orderType === 'Dine-In' ? "SELF-" : "WEB-") + Date.now().toString().slice(-6);
 
-    // Convert cart items to matching format
-    const items = cart.map(c => {
-      const price = c.custom_price !== undefined ? c.custom_price : c.harga;
-      const combinedNotes = c.varian_text ? (c.catatan ? c.varian_text + " | " + c.catatan : c.varian_text) : (c.catatan || "");
+    // Convert and aggregate cart items to matching format
+    const aggregatedItems = [];
+    cart.forEach(c => {
+      const price = c.custom_price !== undefined && c.custom_price !== null ? Number(c.custom_price) : Number(c.harga);
+      const combinedNotes = (c.varian_text ? (c.catatan ? c.varian_text + " | " + c.catatan : c.varian_text) : (c.catatan || "")).trim();
 
-      return {
-        id_produk: c.id_produk,
-        nama_menu: c.nama_menu,
-        harga_satuan: price,
-        qty: c.qty,
-        catatan: combinedNotes,
-        subtotal: price * c.qty
-      };
+      const existing = aggregatedItems.find(it =>
+        it.id_produk === c.id_produk &&
+        it.catatan === combinedNotes &&
+        it.harga_satuan === price
+      );
+
+      if (existing) {
+        existing.qty += c.qty;
+        existing.subtotal += price * c.qty;
+      } else {
+        aggregatedItems.push({
+          id_produk: c.id_produk,
+          nama_menu: c.nama_menu,
+          harga_satuan: price,
+          qty: c.qty,
+          catatan: combinedNotes,
+          subtotal: price * c.qty
+        });
+      }
     });
+    const items = aggregatedItems;
 
     const payload = {
       order_id: newOrderId,
